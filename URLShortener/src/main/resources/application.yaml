@@ -6,4 +6,4 @@ server:
   port: 8080
 
 app:
-  database-path: /Users/hyeonbinchun/Documents/github/URL_Shortener_Service/URLShortener/database.txt
+  database-path: /tmp/database.txt  # container path, not local Mac path
