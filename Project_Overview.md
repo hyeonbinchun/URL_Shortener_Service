@@ -49,14 +49,6 @@ Client => API Gateway => URL API Service
 5. Writes to Cassandra
 6. Deletes the key from Redis cache
 
-### 2.3 AWS Architecture
-**Control Plane**: AWS EKS for orchestration
-**Computer Layer**: 
-- Managed node groups (multi-AZ)
-- Auto Scaling Groups
-****
-****
-
 
 ## 3. Technology Stack
 | Layer | Technology | Reasoning | 
