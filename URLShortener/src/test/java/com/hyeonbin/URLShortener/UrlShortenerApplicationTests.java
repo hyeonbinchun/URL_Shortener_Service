@@ -1,4 +1,4 @@
-package com.hyeonbin.url_shortener;
+package com.hyeonbin.URLShortener;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;

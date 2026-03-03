@@ -1,9 +1,0 @@
-spring:
-  application:
-    name: url_shortener
-
-server:
-  port: 8080
-
-app:
-  database-path: /Users/hyeonbinchun/Documents/github/URL_Shortener_Service/url_shortener/database.txt

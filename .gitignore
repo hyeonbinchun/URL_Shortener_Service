@@ -4,3 +4,6 @@
 
 // Ignore text database files
 database.txt
+
+// Ignore vs code settings
+.vscode/

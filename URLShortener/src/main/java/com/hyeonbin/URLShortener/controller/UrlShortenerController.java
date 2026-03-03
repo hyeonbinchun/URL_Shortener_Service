@@ -1,6 +1,6 @@
-package com.hyeonbin.url_shortener.controller;
+package com.hyeonbin.URLShortener.controller;
 
-import com.hyeonbin.url_shortener.service.UrlShortenerService;
+import com.hyeonbin.URLShortener.service.UrlShortenerService;
 
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.*;
@@ -11,14 +11,13 @@ import org.springframework.core.io.Resource;
 
 @RestController
 public class UrlShortenerController {
-
     private final UrlShortenerService service;
-
+    
     public UrlShortenerController(UrlShortenerService service) {
         this.service = service;
     }
-
-    // PUT /?short=abc&long=https://example.com
+ 
+     // PUT /?short=abc&long=https://example.com
     @PutMapping("/")
     public ResponseEntity<Resource> recordRedirect(
             @RequestParam("short") String shortURL,

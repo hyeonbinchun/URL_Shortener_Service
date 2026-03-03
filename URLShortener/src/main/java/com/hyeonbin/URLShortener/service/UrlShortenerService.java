@@ -1,4 +1,4 @@
-package com.hyeonbin.url_shortener.service;
+package com.hyeonbin.URLShortener.service;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -6,7 +6,7 @@ import java.io.*;
 
 @Service
 public class UrlShortenerService {
-   private final File database;
+    private final File database;
 
     public UrlShortenerService(@Value("${app.database-path}") String databasePath) throws IOException {
         this.database = new File(databasePath);

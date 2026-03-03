@@ -1,4 +1,4 @@
-package com.hyeonbin.url_shortener;
+package com.hyeonbin.URLShortener;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -11,5 +11,3 @@ public class UrlShortenerApplication {
 	}
 
 }
-
-
