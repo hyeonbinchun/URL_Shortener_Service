@@ -8,6 +8,7 @@ public class URLShortner {
     static final File WEB_ROOT = new File("serverFile");
     static final String FILE_NOT_FOUND = "404.html";
     static final String REDIRECT_RECORDED = "redirect_recorded.html";
+    static final String REDIRECT = "redirect.html";
     static final String DATABASE = "serverFile/database.txt";
     static final int PORT = 8080;
 
@@ -61,7 +62,8 @@ public class URLShortner {
                 String longURL = find(shortURL);
 
                 if (longURL != null) {
-                    File file = new File(WEB_ROOT, "redirect.html");
+                    File file = new File(WEB_ROOT, REDIRECT);
+                    
                     byte[] fileData;
                     try (FileInputStream fis = new FileInputStream(file)) {
                         fileData = fis.readAllBytes();
