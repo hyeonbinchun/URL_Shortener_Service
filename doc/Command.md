@@ -21,3 +21,31 @@ docker build -t spring-server .
 ```
 docker image ls
 ```
+
+## Kubernetes
+### create or update resources defined in a YAML file:
+Pod:
+```
+kubectl apply -f nginx-pod.yaml 
+```
+
+Deployment:
+```
+kubectl apply -f spring-deployment.yaml 
+```
+
+### lists the Pods running in your cluster:
+Deployment:
+```
+kubectl get deployment
+```
+
+ReplicaSet:
+```
+kubectl get replicaSet
+```
+
+Pod:
+```
+kubectl get pods
+```
