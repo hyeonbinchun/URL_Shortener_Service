@@ -34,6 +34,11 @@ Deployment:
 kubectl apply -f spring-deployment.yaml 
 ```
 
+Service:
+```
+kubectl apply -f spring-service.yaml
+```
+
 ### lists the Pods running in your cluster:
 Deployment:
 ```
