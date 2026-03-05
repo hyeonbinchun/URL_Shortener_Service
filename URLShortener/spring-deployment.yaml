@@ -23,6 +23,16 @@ spec:
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
+          env:
+            - name: SPRING_CASSANDRA_CONTACT_POINTS   # overrides application.properties
+              value: "cassandra.cassandra.svc.cluster.local"
+            - name: SPRING_CASSANDRA_PORT
+              value: "9042"
+            - name: SPRING_CASSANDRA_KEYSPACE_NAME
+              value: "url_shortener"
+            - name: SPRING_CASSANDRA_LOCAL_DATACENTER
+              value: "datacenter1"
+          
           
 
 
