@@ -27,7 +27,7 @@ spec:
             - name: CASSANDRA_CLUSTER_NAME
               value: "MyCluster"
             - name: CASSANDRA_DC
-              value: "DC1"
+              value: "datacenter1"
             - name: CASSANDRA_RACK
               value: "Rack1"
             - name: MAX_HEAP_SIZE
