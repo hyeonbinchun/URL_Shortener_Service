@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: ConfigMap
+metadata: 
+  name: prometheus-config
+  namespace: observability
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s # How often Prometheus collects metrics
+      evaluation_interval: 15s # How often Prometheus evaluates rules
+
+    scrape_configs:
+      # Prometheus monitors itself
+      - job_name: 'prometheus'
+        static_configs:
+          - targets: ['localhost:9090']
+    
+      # URL Shortener Spring Boot app
+      # (requires Spring Actuator + Micrometer)
+      - job_name: 'url-shortener'
+        metrics_path: '/actuator/prometheus'
+        static_configs:
+          - targets: ['url-shortener:8080']
+
+    # Allow k6 to push metrics via Remote Write API
+    remote_write_receiver: {}
