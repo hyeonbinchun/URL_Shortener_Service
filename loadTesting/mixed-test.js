@@ -1,5 +1,9 @@
 import http from 'k6/http';
 import { sleep, check } from 'k6';
+import { Rate, Trend } from 'k6/metrics';
+
+const errorRate = new Rate('url_shortener_errors');
+const redirectLatency = new Trend('url_shortener_latency');
 
 const BASE_URL = 'http://35.171.88.228:30000';
 
@@ -16,23 +20,28 @@ export const options = {
 
 export default function () {
   const rand = Math.random();
+  let res;
+  let success;
 
   if (rand < 0.8) {
     // 80% reads — GET /{shortURL}
     const code = KNOWN_SHORT_CODES[Math.floor(Math.random() * KNOWN_SHORT_CODES.length)];
-    const res = http.get(`${BASE_URL}/${code}`, {
+    res = http.get(`${BASE_URL}/${code}`, {
       redirects: 0,  // Don't follow the 301 — just measure Spring+Cassandra response time
     });
-    check(res, { 'read: status 301': (r) => r.status === 301 });
+    success = check(res, { 'read: status 301': (r) => r.status === 301 });
 
   } else {
     // 20% writes — PUT /?short=...&long=...
     const shortCode = `test${Math.floor(Math.random() * 1000000)}`;
-    const res = http.put(
+    res = http.put(
       `${BASE_URL}/?short=${shortCode}&long=https://example.com/some/long/url`
     );
-    check(res, { 'write: status 200': (r) => r.status === 200 });
+    success = check(res, { 'write: status 200': (r) => r.status === 200 });
   }
+  
+  errorRate.add(!success);
+  redirectLatency.add(res.timings.duration);
 
   sleep(1);
 }

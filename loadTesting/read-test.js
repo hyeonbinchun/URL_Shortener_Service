@@ -1,5 +1,9 @@
 import http from 'k6/http';
 import { sleep, check } from 'k6';
+import { Rate, Trend } from 'k6/metrics';
+
+const errorRate = new Rate('url_shortener_errors');
+const redirectLatency = new Trend('url_shortener_latency');
 
 const BASE_URL = 'http://35.171.88.228:30000';
 
@@ -20,7 +24,10 @@ export default function () {
         redirects: 0,   // Stop at 301 — don't follow redirect to external site
     });
 
-    check(res, { 'read: status 301': (r) => r.status === 301 });
+    const success = check(res, { 'read: status 301': (r) => r.status === 301 });
+
+    errorRate.add(!success);
+    redirectLatency.add(res.timings.duration);
 
     sleep(1);
 }
