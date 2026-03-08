@@ -20,7 +20,4 @@ data:
       - job_name: 'url-shortener'
         metrics_path: '/actuator/prometheus'
         static_configs:
-          - targets: ['url-shortener:8080']
-
-    # Allow k6 to push metrics via Remote Write API
-    remote_write_receiver: {}
+          - targets: ['spring-service.default.svc.cluster.local:8080'] # Kubernetes service for Spring Boot app
