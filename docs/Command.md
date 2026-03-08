@@ -21,3 +21,11 @@ docker build -t spring-server .
 ```
 docker image ls
 ```
+
+## Cassandra
+### status
+kubectl exec -it cassandra-0 -n cassandra -- nodetool status
+### remove the dead nodes properly
+kubectl exec -it cassandra-0 -n cassandra -- nodetool removenode <host-id>
+### delete vol 
+kubectl delete pvc -n cassandra --all
