@@ -13,7 +13,7 @@ This service allows you to shorten URLs and redirect users using a short code.
 - Redirect using short code:
   ```bash
   curl -i 'http://localhost:8080/abc'
-  curl -i 'http://35.171.88.228:30000/test'
+  curl -i 'http://35.171.88.228:30000/abc'
   ```
 
 ## Running

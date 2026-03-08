@@ -9,8 +9,8 @@ const BASE_URL = 'http://35.171.88.228:30000';
 
 export const options = {
     stages: [
-        { duration: '2m', target: 100 },  // ramp up
-        { duration: '5m', target: 100 },  // steady state
+        { duration: '2m', target: 500 },  // ramp up
+        { duration: '5m', target: 500 },  // steady state
         { duration: '1m', target: 0 },    // ramp down
     ],
 };
@@ -25,6 +25,4 @@ export default function () {
 
     errorRate.add(!success);
     redirectLatency.add(res.timings.duration);
-
-    sleep(1);
 }
