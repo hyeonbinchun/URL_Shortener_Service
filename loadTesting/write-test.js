@@ -25,4 +25,6 @@ export default function () {
 
     errorRate.add(!success);
     redirectLatency.add(res.timings.duration);
+
+    sleep(1);
 }
