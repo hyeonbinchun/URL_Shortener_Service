@@ -1,16 +1,13 @@
 import http from 'k6/http';
 import { sleep, check } from 'k6';
-import { Rate, Trend } from 'k6/metrics';
 
-const errorRate = new Rate('url_shortener_errors');
-const redirectLatency = new Trend('url_shortener_latency');
+const BASE_URL = 'http://172.31.35.239:30000';
 
-const BASE_URL = 'http://35.171.88.228:30000';
 
 export const options = {
     stages: [
-        { duration: '2m', target: 500 },  // ramp up
-        { duration: '5m', target: 500 },  // steady state
+        { duration: '7m', target: 7000 },  // ramp up
+        { duration: '5m', target: 7000 },  // steady state
         { duration: '1m', target: 0 },    // ramp down
     ],
 };
@@ -19,12 +16,14 @@ export default function () {
     // 100% writes — PUT /?short=...&long=...
     const shortCode = `test${Math.floor(Math.random() * 1000000)}`;
     const res = http.put(
-        `${BASE_URL}/?short=${shortCode}&long=https://example.com/some/long/url`
+        `${BASE_URL}/?short=${shortCode}&long=https://example.com/some/long/url`,
+        null,
+        { tags: { 
+            type: 'write',
+            name: 'PUT /write',  // ← this overrides the URL as the metric label
+         }}
     );
-    const success = check(res, { 'write: status 200': (r) => r.status === 200 });
-
-    errorRate.add(!success);
-    redirectLatency.add(res.timings.duration);
+    check(res, { 'write: status 200': (r) => r.status === 200 });
 
     sleep(1);
 }
