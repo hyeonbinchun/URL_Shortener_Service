@@ -1,178 +1,366 @@
-# Distributed URL Shortener
+# Distributed URL Shortener Service
 
-## 1. Project Overview
-### 1.1 Objective
-Design and implement a horizontally scalable, fault-tolerant URL shortener capable of:
+## 1. Project Objective
 
+Design and implement a horizontally scalable, fault-tolerant URL shortener Service capable of:
 - Handling high read/write throughput
+- Low Latency
 - Maintaining data durability
-- Supporting asynchronous write optimization
 - Demonstrating distributed system tradeoffs
 - Operating in containerized cloud-native environments
 
 The system prioritizes:
 - Scalability
-- Observability
-- Resilience
-- Performance benchmarking
+- Availability and Resilience (Falut-tolerance, Healing)
+- Observability (Monitoring System, Monitoring UI)
+- Performance benchmarking (Load Testing, Failure Testing) 
 - Tradeoff analysis
 
 ## 2. High-Level Architecture
 ### 2.1 Core Components
 1. API Service (Spring Boot)
-2. Redis Cache Layer
-3. Cassandra Persistence Layer
-4. Async Write Pipeline
-5. Logger Service
-6. Load Generator
-7. Monitoring Stack
+2. Cache Layer (Redis)
+3. Persistence Layer (Cassandra)
+4. Streaming Layer (Kafka)
+5. Writer Service (Spring Boot) 
+6. Load Generator (k6)
+7. Observability Stack (Prometheus + Grafana)
 
-### 2.2 System Architecture
-
-```
-Client => API Gateway => URL API Service
-    => Read: Redis Cache => Cassandra DB
-    => Write: Redis Stream (Queue) => Writer Service => Cassandra DB => Cache Update + Logger
-```
-
-**Read Flow**:
-1. Check Redis cache first
-2. If cache miss → query Cassandra
-3. Cache the result in Redis
-4. Return to user
-
-**Write Flow**:
-1. Write request comes in → Only queue it to Redis Streams (queue_write())
-2. Return immediately to user (non-blocking!)
-3. Separate writer service consumes from Redis Streams asynchronously
-4. Writer service then:
-5. Writes to Cassandra
-6. Deletes the key from Redis cache
-
-
-## 3. Technology Stack
+### 2.2 Tech Stack
 | Layer | Technology | Reasoning | 
 | :--- | :--- | :--- |
-| Backend | Java + Spring Boot | Production-ready framework
-| Cache | Redis | Low-latency read optimization
+| API Service | Java + Spring Boot | Fast development
+| Writer Service | Java + Spring Boot | Kafka consumer for DB writes and cache updates
+| Cache | Redis | Low-latency reads
 | Database | Apache Cassandra | Horizontal scalability
+| Streaming | Kafka | Async writes
 | Containeralization | Docker | Environment isolation
-| Orchestration | Kubernetes | Scaling & self-healing
-| Monitoring | Prometheus + Grafana | Observability
-| Streaming (Async) | Redis Streams | Durable async pipeline
+| Orchestration | Kubernetes | Scaling and self-healing
+| Observability | Prometheus + Grafana | Metrics collection and visualization
+| Load Testing | k6 | Performance benchmarking under high load
 
-## 4. System Design Decisions
-### 4.1 Cassandra Configuration
+### 2.3 System Architecture
 
-Table: urls
+```
+# Full Architecture Plan
 
-| Column | Type | Description | 
-| :--- | :--- | :--- |
-| short_url | text (PK) | Partition key
-| long_url | text | Original URL (Target URL)
-| Dcreated_at | timestamp | Metadata
+Load Generator (k6) → Prometheus → Grafana
+    ↓
+Client / Virtual Users
+    ↓
+API Service (Producer) 
+    ↓                    
+-------------------- READ PATH --------------------
+    │
+    ├─> Redis Replicas (read-heavy queries)
+    │           ↑
+    │           │
+    │       Replication from Primary
+    │
+    └─> Cassandra DB (fallback on cache miss)
+            │
+            └─> Updates Redis Primary → propagates to Replicas
+
+
+-------------------- WRITE PATH -------------------
+    │
+    └─> Kafka (Durable Log)
+                ↓   
+    Writer Service (Consumer)
+                ↓
+Cassandra DB + Cache Evict(DELETE) + Logging
+```
+
+**Read Path (Synchronous)**:
+1. Reads go to Redis Replicas first.
+2. On cache miss → read from Cassandra, then populate Redis Primary, which replicates to Replicas.
+
+**Write Path (Asynchronous)**:
+1. Queue write request to Kafka → return immediately (non-blocking)
+2. API writes are pushed to Kafka → Writer Service handles DB writes.
+3. Writer Service invalidates cache (deletes keys) after successful write.
+4. Writer Service logs both write operations and cache eviction for observability.
+
+**Separation of responsibilities**:
+- Kafka: durable message transport only.
+- Writer Service: writes to Cassandra, invalidates cache, logs events.
+- Redis Primary: receives lazy population from read misses; no direct write during writes.
 
 
 
-### 4.2 Caching Strategy
-Read Flow:
-1. Check Redis
-2. If miss → query Cassandra
-3. Populate cache
+## 3. System Design Decisions
+### 3.1 Cassandra for Persistence
+- Horizontally scalable and highly available
+- Supports partitioning and replication → durable storage
+- Tradeoff: weaker consistency guarantees (eventual consistency)
 
-Write Flow (Synchronous Version):
-1. Write to Redis Stream
-2. Immediate 200 OK
-3. Writer service processes queue
-4. Write to Cassandra
-5. Update cache
-6. Log operation
+### 3.2  Redis Cache for Fast Reads
+- Reduces load on Cassandra for popular URLs
+- Provides TTL-based eviction for short-lived entries
+- Tradeoff: cache misses require fallback to DB
 
-### 4.1 Redis Configuration
-- Primary with persistence (AOF)
-- Replicas without persistence
-- Eviction policy: allkeys-lru
-- TTL for cache entries
+### 3.3 Asynchronous Writes with Kafka
+- Decouples API from database writes → reduces API latency
+- Buffers spikes in traffic → prevents Cassandra overload
+- Enables replayable events for resilience or future analytics
+- Tradeoff: introduces eventual consistency
 
-## 5. Scalability Strategy
-### 5.1 Horizontal Scaling
-API layer:
-- Kubernetes Deployment
-- Horizontal Pod Autoscaler (CPU-based scaling)
+### 3.4 Writer Service (Separate Consumer)
+- Handles writes asynchronously from Kafka
+- Updates Cassandra and invalidates Redis cache
+- Logs operations:
+    - Kafka message consumption status (success/failure)
+    - Cassandra write success/failure
+    - Redis cache eviction/update
+    - Errors and exceptions for observability and debugging
+- Tradeoff: adds complexity, requires monitoring of consumer lag
 
-Cassandra:
-- StatefulSet
-- Add nodes dynamically
-- Automatic rebalancing
+### 3.5 Containerization and Orchestration
+- Docker + Kubernetes → easy deployment, scaling, self-healing
+- Tradeoff: introduces operational complexity
 
-Redis:
-- Single primary
-- Read replicas
-- Future option: Redis Cluster
+### 3.6 Observability & Load Testing
+- k6 → Generate HTTP load. Can push it’s own metrics to Prometheus  
+- Prometheus + Grafana → Monitor latency, throughput, errors
+- Tradeoff: simplified metrics for this project 
 
-### 5.2 Data Scalability
+
+### 3.7 Observability & Load Testing
+- k6 → Generate HTTP load. Can push it’s own metrics to Prometheus  
+- Prometheus + Grafana → Monitor latency, throughput, errors
+- Tradeoff: simplified metrics for this project 
+
+## 4. Scalability Strategy
+### 4.1 Horizontal Scaling
+**API layer (Service):**
+- Kubernetes Deployment + Service
+- Pods can be scaled horizontally (add/remove) based on load
+- Internal traffic between pods is automatically routed by the Kubernetes Service (basic L4 load balancing)
+
+**Database Layer (Cassandra):**
+- Kubernetes StatefulSet + Headless Service
+- Dynamic node addition/removal with automatic data rebalancing 
+
+**Caching Layer (Redis):**
+- Kubernetes StatefulSet + Headless Service
+- Single Primary handles writes
+- Replicas handle reads for horizontal scaling
+- Manual horizontal scaling: add/remove pods as needed
+
+**Writer Service (Kafka Consumer Layer)**
+- Kubernetes Deployment with multiple replicas.
+- Each Writer Service instance belongs to the same consumer group in Apache Kafka.
+- Kafka distributes topic partitions across consumer instances, allowing parallel processing of write events.
+
+**Load Balancing / Traffic Routing**
+- Internal: Kubernetes Service distributes requests across API pods
+- External: Optional cloud or reverse proxy load balancer (e.g., AWS ELB, GCP LB, Nginx, Traefik) handles ingress traffic and L7 routing
+
+### 4.2 Data Scalability
 Handled by:
-- Cassandra partitioning
-- Replication
+- Cassandra Partitioning
+- Cassandra Replication
 - Eventual consistency model
 
-Demonstration:
-- Add Cassandra node
-- Observe reduced write pressure
-- Observe data rebalancing
 
-## 6. Fault Tolerance
-### 6.1 
-6.1 Node Failure
-Cassandra:
-- Replication ensures availability
-- QUORUM writes prevent data loss
 
-Redis:
-- Replica promotion on primary failure
+## 5. Fault Tolerance
+### Kubernetes:
+- Pods are automatically restarted on crash.
+- Liveness and readiness probes detect unhealthy pods and remove them from service until healthy.
 
-Kubernetes:
-- Pod restart on crash
-- Liveness and readiness probes
+### API Service failure:
+- Kubernetes restarts failed API pods automatically.
+- Service traffic routing ensures that requests are sent only to healthy pods.
+- Horizontal scaling allows adding more pods to maintain throughput during partial failures.
 
-## 7. Observability & Metrics
+### Cassandra failure:
+- Replication ensures data is available even if one or more nodes fail.
+- Kubernetes StatefulSet can reschedule failed pods; data is automatically rebalanced.
 
-Metrics collected:
-- RPS
+### Redis Primary failure
+- **Failure detection**: Kubernetes liveness probes (or Redis Sentinel/operator) detect Primary pod failure.
+- **Replica promotion**: One of the existing Replicas is promoted to Primary. The operator updates client connections to the new Primary.
+- **Client behavior**: The API service or Redis client automatically redirects writes to the new Primary.
+- **Persistence**:
+    - If persistent storage -> reloads persisted data on startup
+    - Else: relies on its(replica) in-memory copy replicated from the old Primary.
+- **Data guarantees**: No data is lost if replication was up-to-date at the time of Primary failure.
+
+
+### Redis Replica failure:
+- Can be replaced dynamically by adding a new Replica pod in Kubernetes.
+- New Replica syncs data from Primary.
+
+## 6. Observability & Metrics
+**Metrics collected:**
+- Throughput (RPS)
+- P99 latency
 - P95 latency
-- Cassandra write latency
-- Queue depth (async mode)
-Monitoring stack:
-- Prometheus scraping
-- Grafana dashboards
-- Health endpoints via Spring Actuator
+- P50 latency
+- Error Rate (http_request_failed)
 
 
-## 8. Testing Strategy
-### 8.1 Load Testing
+**Observability stack:**
+- **Prometheus**: Scrapes metrics generated by k6
+- **Grafana**: Visualizes metrics in dashboards
 
-Custom load generator:
-- Configurable RPS
-- Thread control
-- Duration-based execution
+**Future Improvement**:
+1. Add system-level metrics: CPU, Memory
+2. Extend monitoring to all components: API Service, Redis, Kafka, Writer Service, Cassandra
 
-Scenarios:
-- Read-heavy workload
-- Write-heavy workload
-- Mixed workload
-- Node failure under load
 
-### 8.2 Fault Injection
+## 7. Testing/Benchmarking Strategy
+### 7.1 Load Testing
+**Scenarios**:
+1. Read-only workload
+2. Write-only workload
+3. Mixed workload (80% reads / 20% writes)
+4. Node failure
+
+**Each scenario includes the following phases**:
+1. Ramp-up
+2. Steady state
+3. Ramp-down
+
+**Note**:
+- Each load testing scenario uses a preloaded dataset of 10,000 shortened URLs. This allows the system to demonstrate cache effectiveness, database fallback behavior, and asynchronous write handling under realistic conditions.
+- Each load test runs for several minutes to allow the system to reach a steady state and to collect sufficient performance metrics.
+
+### 7.2 Fault Injection
 - Kill Cassandra pod
 - Kill Redis primary
-- Increase latency artificially
-- Observe recovery time
 
-## 9. Tradeoff Analysis
+### 7.3 Measurement Comparison
+- Simplest baseline setup (1 api server 1 cassandra node)
+- Full architecture setup
 
-| Aspect | Sync Version | Async Version | 
+**Note**: Because the system runs on a single EC2 node, hardware resources become the global bottleneck. Therefore, horizontal scaling benefits are limited. However, architectural optimizations such as caching and asynchronous processing still provide significant performance improvements.
+
+
+## 8. Infrastructure Setup
+
+To keep the setup simple and avoid unnecessary complexity, we demonstrate the architecture using a minimal AWS configuration.
+
+### Single-Node Simulation
+
+This project runs on a single EC2 instance to keep infrastructure costs minimal.
+While components like Cassandra and the API service are deployed as multiple pods,
+they share the same physical host — so this setup simulates distributed behavior
+rather than providing true distributed fault isolation.
+
+What this setup validly demonstrates:
+- API horizontal scaling: k3s load balances real traffic across multiple pods
+- Cache effectiveness: Redis hit/miss ratio and latency improvement are genuine
+- Async write decoupling: Kafka offloads writes from the API response path
+
+What requires a multi-node setup to demonstrate properly:
+- Cassandra fault tolerance (node failure with data still available)
+- True Cassandra read/write throughput scaling across nodes
+- Network partition and split-brain scenarios
+
+
+### EC2 #1: Load Tester 
+The load testing tool (k6) must run independently from the system under test (backend services, databases, etc.). This separation is important because the load tester itself generates traffic and consumes computing resources such as CPU and memory. Running it on a separate instance ensures the test results are not skewed by resource contention.
+
+### EC2 #2: Service Node
+Runs the core application stack:
+- API
+- Writer
+- Redis
+- Cassandra
+- Kafka
+- Observability tools
+
+### Orchestration: k3s
+- Installs in ~5 minutes
+- Lightweight compared to full Kubernetes distributions
+- Still provides a real Kubernetes environment
+
+
+### AWS Architecture
+
+```
+AWS VPC (default)
+
+    EC2 #1 load-tester
+        ↓
+    EC2 #2 service-node
+    (k3s cluster)
+        │
+        ├── API Service Pods (3 pods)
+        ├── Writer Service Pod (1 pod)
+        │
+        ├── Redis (single Primary + single Replica)
+        │
+        ├── Cassandra (3 nodes(pods) with rf=2)
+        │
+        ├── Kafka (1 pod)
+        │
+        ├── Prometheus
+        └── Grafana
+```
+Im skipping Prometheus and Grafana on EC2 for now and use k6 dashboard instaed (Temporary)
+
+## EC2 Instance Recommendation
+
+The EC2 instance type used in this project is chosen purely to ensure all pods
+can run stably without OOM failures — not to maximize throughput or minimize latency.
+
+The benchmark goal is to measure the **relative improvement** between two configurations:
+- **Baseline**: 1 API pod, 1 Cassandra node, no cache, no async writes
+- **Full architecture**: 3 API pods, 3 Cassandra nodes, Redis, Kafka
+
+Since both configurations run on the **same EC2 instance**, the hardware is a constant.
+The delta in throughput, latency, and error rate between the two runs reflects
+architectural differences only — not vertical scaling.
+
+In other words, a more powerful instance would shift both results upward equally,
+but would not change the conclusion about what the distributed architecture gains you.
+
+| EC # | Type | Reasoning | 
 | :--- | :--- | :--- |
-| Latency | Higher | Lower
-| Consistency | Stronger | Eventual
-| Throughput | Limited by DB | Limited by queue
-| Complexity | Lower | Higher
+| Load tester | `t3.medium` | CPU matters for k6
+| Service node | `t3.large` | Cassandra + Redis + Kafka need RAM
+
+## Networking
+```
+                    User Request   
+                         │
+                         │
+                         │
+┌────────────────────────┼─────────────────────────┐
+│  Kubernetes Cluster    │                         │
+│                        │                         │
+│  Namespace: default    │                         │
+│  ┌─────────────────────▼────────────────────┐    │
+│  │ spring-service (NodePort :30080)         │    │
+│  └───────────────┬──────────────────────────┘    │
+│                  │ routes to                     │
+│  [Deployment] ──manages───────────────────────┐  │                   
+│  ┌───────────────▼──────────────────────────┐ │  │
+│  │ Spring Pod 1                             │ │  │
+│  │ Spring Pod 2  (spring-deployment)        │ │  │
+│  │ Spring Pod 3                             │ │  │
+│  │                                          │ │  │
+│  │  Controller → Service → Repository       │ │  │
+│  │                    │                     │ │  │
+│  └────────────────────┼─────────────────────┘ │  │
+│  └────────────────────┼───────────────────────┘  │ 
+│                       │ DNS across namespaces    │
+│  Namespace: cassandra │                          │
+│  [StatefulSet] ──manages──────────────────────┐  │ 
+│  ┌────────────────────▼─────────────────────┐ │  │
+│  │ Headless Service (cassandra-service)     │ │  │
+│  │ cassandra.cassandra.svc.cluster.local    │ │  │
+│  └───────┬───────────┬───────────┬──────────┘ │  │
+│  │       │           │           │            │  │
+│  │    [cass-0]    [cass-1]    [cass-2]        │  │
+│  └────────────────────────────────────────────┘  │ 
+└──────────────────────────────────────────────────┘
+```
+
+
+## Future:
+- Multi-Node Environment
+- Cloud services: EKS, EBS, External LB, ETC 
