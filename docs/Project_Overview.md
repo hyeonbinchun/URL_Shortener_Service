@@ -38,6 +38,7 @@ The system prioritizes:
 | Orchestration | Kubernetes | Scaling and self-healing
 | Observability | Prometheus + Grafana | Metrics collection and visualization
 | Load Testing | k6 | Performance benchmarking under high load
+| Automation | Bash | Deployment scripts and infrastructure management 
 
 ### 2.3 System Architecture
 
@@ -321,7 +322,7 @@ but would not change the conclusion about what the distributed architecture gain
 | EC # | Type | Reasoning | 
 | :--- | :--- | :--- |
 | Load tester | `t3.medium` | CPU matters for k6
-| Service node | `t3.large` | Cassandra + Redis + Kafka need RAM
+| Service node | `t4g.xlarge` | Cassandra + Redis + Kafka need RAM
 
 ## Networking
 ```
