@@ -14,6 +14,7 @@ export const options = {
 export default function () {
     const code = Math.floor(Math.random() * 10000) + 1;
     const res = http.get(`${BASE_URL}/short${code}`, {
+        timeout: "3s",
         redirects: 0,   // Stop at 301 — don't follow redirect to external site
         tags: { type: 'read', name: 'GET /redirect' },   // ← queryable in Prometheus as label
     });
