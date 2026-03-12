@@ -239,11 +239,11 @@ Handled by:
 **Note**: Because the system runs on a single EC2 node, hardware resources become the global bottleneck. Therefore, horizontal scaling benefits are limited. However, architectural optimizations such as caching and asynchronous processing still provide significant performance improvements.
 
 
-## 8. Infrastructure Setup
+## 8. Infrastructure Setup (for measurements, not for demo)
 
 To keep the setup simple and avoid unnecessary complexity, we demonstrate the architecture using a minimal AWS configuration.
 
-### Single-Node Simulation
+### Single-Node Simulation 
 
 This project runs on a single EC2 instance to keep infrastructure costs minimal.
 While components like Cassandra and the API service are deployed as multiple pods,
