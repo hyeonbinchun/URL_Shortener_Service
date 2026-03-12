@@ -72,7 +72,7 @@ API Service (Producer)
 Cassandra DB + Cache Evict(DELETE) + Logging
 ```
 
-**Read Path (Synchronous)**:
+**Read Path (Synchronous) - Cach Aside**:
 1. Reads go to Redis Replicas first.
 2. On cache miss → read from Cassandra, then populate Redis Primary, which replicates to Replicas.
 
