@@ -6,8 +6,8 @@ const BASE_URL = 'http://172.31.35.239:30000';
 
 export const options = {
     stages: [
-        { duration: '7m', target: 7000 },  // ramp up
-        { duration: '5m', target: 7000 },  // steady state
+        { duration: '4m', target: 10000 },  // ramp up
+        { duration: '7m', target: 10000 },  // steady state
         { duration: '1m', target: 0 },    // ramp down
     ],
 };
@@ -18,7 +18,9 @@ export default function () {
     const res = http.put(
         `${BASE_URL}/?short=${shortCode}&long=https://example.com/some/long/url`,
         null,
-        { tags: { 
+        {
+            timeout: "3s",
+            tags: { 
             type: 'write',
             name: 'PUT /write',  // ← this overrides the URL as the metric label
          }}
