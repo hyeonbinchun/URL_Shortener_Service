@@ -71,7 +71,7 @@ API Service (Producer)
     Cassandra DB + Logging
 ```
 
-**Read Path (Synchronous) - Cach Aside**:
+**Read Path (Synchronous) - Cache Aside**:
 1. Reads go to Redis Replicas first.
 2. On cache miss → read from Cassandra, then populate Redis Primary, which replicates to Replicas.
 

@@ -3,11 +3,20 @@ spring:
     name: url_shortener
   
   cassandra:
-    contact-points: localhost
+    contact-points: cassandra.cassandra.svc.cluster.local  # cross-namespace DNS
     port: 9042
     keyspace-name: url_shortener
     local-datacenter: datacenter1
     schema-action: NONE
+
+app:
+  redis:
+    primary:
+      host: redis-primary-service.redis.svc.cluster.local  # cross-namespace DNS
+      port: 6379
+    replica:
+      host: redis-replica-service.redis.svc.cluster.local  # cross-namespace DNS
+      port: 6379
 
 server:
   port: 8080
