@@ -30,7 +30,7 @@ The system prioritizes:
 | Layer | Technology | Reasoning | 
 | :--- | :--- | :--- |
 | API Service | Java + Spring Boot | Fast development
-| Writer Service | Java + Spring Boot | Kafka consumer for DB writes and cache updates
+| Writer Service | Java + Spring Boot | Kafka consumer for DB writes
 | Cache | Redis | Low-latency reads
 | Database | Apache Cassandra | Horizontal scalability
 | Streaming | Kafka | Async writes
@@ -53,12 +53,11 @@ API Service (Producer)
     ↓                    
 -------------------- READ PATH --------------------
     │
-    ├─> Redis Replicas (read-heavy queries)
-    │           ↑
-    │           │
-    │       Replication from Primary
+    ├─> Read Redis Replicas (Cache Hit)
     │
-    └─> Cassandra DB (fallback on cache miss)
+    └─> Cache Miss:
+            │
+            ├─> Cassandra DB
             │
             └─> Updates Redis Primary → propagates to Replicas
 
@@ -69,18 +68,17 @@ API Service (Producer)
                 ↓   
     Writer Service (Consumer)
                 ↓
-Cassandra DB + Cache Evict(DELETE) + Logging
+    Cassandra DB + Logging
 ```
 
 **Read Path (Synchronous) - Cach Aside**:
 1. Reads go to Redis Replicas first.
 2. On cache miss → read from Cassandra, then populate Redis Primary, which replicates to Replicas.
 
-**Write Path (Asynchronous)**:
+**Write Path (Asynchronous) - Write Around**:
 1. Queue write request to Kafka → return immediately (non-blocking)
 2. API writes are pushed to Kafka → Writer Service handles DB writes.
-3. Writer Service invalidates cache (deletes keys) after successful write.
-4. Writer Service logs both write operations and cache eviction for observability.
+3. Writer Service logs write operations for observability.
 
 **Separation of responsibilities**:
 - Kafka: durable message transport only.
@@ -112,7 +110,6 @@ Cassandra DB + Cache Evict(DELETE) + Logging
 - Logs operations:
     - Kafka message consumption status (success/failure)
     - Cassandra write success/failure
-    - Redis cache eviction/update
     - Errors and exceptions for observability and debugging
 - Tradeoff: adds complexity, requires monitoring of consumer lag
 

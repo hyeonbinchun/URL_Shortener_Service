@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-primary-service
+  namespace: redis
+spec:
+  selector:
+    app: redis
+    role: primary # Only routes to primary pod
+  ports:
+    - port: 6379
+      targetPort: 6379
+  type: ClusterIP # This service will be accessible only within the cluster.
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-replica-service
+  namespace: redis
+spec:
+  selector:
+    app: redis
+    role: replica # Only routes to replica pods
+  ports:
+    - port: 6379
+      targetPort: 6379
+  type: ClusterIP # This service will be accessible only within the cluster.
