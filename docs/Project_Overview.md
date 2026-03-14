@@ -140,7 +140,7 @@ API Service (Producer)
 - Dynamic node addition/removal with automatic data rebalancing 
 
 **Caching Layer (Redis):**
-- Kubernetes StatefulSet + Headless Service
+- Kubernetes StatefulSet + Service + Headless Service
 - Single Primary handles writes
 - Replicas handle reads for horizontal scaling
 - Manual horizontal scaling: add/remove pods as needed
@@ -181,8 +181,7 @@ Handled by:
 - **Replica promotion**: One of the existing Replicas is promoted to Primary. The operator updates client connections to the new Primary.
 - **Client behavior**: The API service or Redis client automatically redirects writes to the new Primary.
 - **Persistence**:
-    - If persistent storage -> reloads persisted data on startup
-    - Else: relies on its(replica) in-memory copy replicated from the old Primary.
+    Relies on replica's in-memory copy replicated from the old Primary.
 - **Data guarantees**: No data is lost if replication was up-to-date at the time of Primary failure.
 
 

@@ -1,9 +1,12 @@
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
+
 metadata:
-  name: redis-primary-deployment
+  name: redis-primary
   namespace: redis
+
 spec:
+  serviceName: redis-headless
   replicas: 1   # Primary Redis instance
   selector:
     matchLabels:

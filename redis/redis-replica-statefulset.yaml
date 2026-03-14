@@ -1,9 +1,10 @@
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
-  name: redis-replica-deployment
+  name: redis-replica
   namespace: redis
 spec:
+  serviceName: redis-headless
   replicas: 2                  # scale replicas 
   selector:
     matchLabels:
@@ -21,4 +22,7 @@ spec:
           ports:
             - containerPort: 6379
           command: ["redis-server"]
-          args: ["--replicaof", "redis-primary-service", "6379"]  # points to primary
+          args:
+            - "--replicaof"
+            - "redis-primary-0.redis-headless.redis.svc.cluster.local"   # updated DNS
+            - "6379"  # points to primary
