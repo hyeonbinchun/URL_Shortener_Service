@@ -9,8 +9,8 @@ kubectl delete -f "$SPRING/spring-deployment.yaml" --ignore-not-found
 kubectl delete -f "$SPRING/spring-service.yaml" --ignore-not-found
 
 echo "Tearing down Redis..."
-kubectl delete -f "$REDIS/redis-replica-deployment.yaml" --ignore-not-found
-kubectl delete -f "$REDIS/redis-primary-deployment.yaml" --ignore-not-found
+kubectl delete -f "$REDIS/redis-replica-statefulset.yaml" --ignore-not-found
+kubectl delete -f "$REDIS/redis-primary-statefulset.yaml" --ignore-not-found
 kubectl delete -f "$REDIS/redis-service.yaml" --ignore-not-found
 
 echo "Tearing down Cassandra..."
