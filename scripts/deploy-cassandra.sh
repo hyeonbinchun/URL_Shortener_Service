@@ -11,4 +11,3 @@ echo "Waiting for Cassandra pods to be ready (this takes a few minutes)..."
 kubectl rollout status statefulset/cassandra -n cassandra --timeout=360s
 
 echo "Cassandra is ready."
-echo "Run ./deploy-spring.sh to start the Spring Boot app."
