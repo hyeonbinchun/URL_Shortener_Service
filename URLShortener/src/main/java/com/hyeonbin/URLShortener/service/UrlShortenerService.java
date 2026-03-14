@@ -39,8 +39,10 @@ public class UrlShortenerService {
         try {
             String cachedLongUrl = replicaRedisTemplate.opsForValue().get(cacheKey);
             if (cachedLongUrl != null) {
+                LOGGER.info("Cache HIT for key: {}", cacheKey);
                 return cachedLongUrl;
             }
+            LOGGER.info("Cache MISS for key: {}", cacheKey); 
         } catch (Exception ex) {
             LOGGER.warn("Failed to read from Redis replica for key {}", cacheKey, ex);
         }
@@ -55,6 +57,7 @@ public class UrlShortenerService {
         // Cache-aside write-back to primary Redis after DB hit.
         try {
             primaryRedisTemplate.opsForValue().set(cacheKey, longUrl, Duration.ofMinutes(1));
+            LOGGER.info("Cache populated for key: {}", cacheKey);
         } catch (Exception ex) {
             LOGGER.warn("Failed to update Redis primary cache for key {}", cacheKey, ex);
         }

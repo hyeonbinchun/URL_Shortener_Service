@@ -2,19 +2,29 @@ package com.hyeonbin.URLShortener.controller;
 
 import com.hyeonbin.URLShortener.service.UrlShortenerService;
 
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.*;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.web.bind.annotation.*;
 import java.net.URI;
+import java.util.Map;
 import org.springframework.core.io.Resource;
 
 @RestController
 public class UrlShortenerController {
 
     private final UrlShortenerService service;
+    private final StringRedisTemplate primaryRedisTemplate;
+    private final StringRedisTemplate replicaRedisTemplate;
     
-    public UrlShortenerController(UrlShortenerService service) {
+    public UrlShortenerController(
+            UrlShortenerService service,
+            @Qualifier("primaryRedisTemplate") StringRedisTemplate primaryRedisTemplate,
+            @Qualifier("replicaRedisTemplate") StringRedisTemplate replicaRedisTemplate) {
         this.service = service;
+        this.primaryRedisTemplate = primaryRedisTemplate;
+        this.replicaRedisTemplate = replicaRedisTemplate;
     }
  
      // PUT /?short=abc&long=https://example.com
@@ -40,6 +50,20 @@ public class UrlShortenerController {
         } else {
             return serveHtml("404.html", HttpStatus.NOT_FOUND);
         }
+    }
+
+    // Temporary debug endpoint to check cache status for a given short URL
+    @GetMapping("/debug/cache/{shortUrl}")
+    public Map<String, String> debugCache(@PathVariable String shortUrl) {
+        String cacheKey = "url:" + shortUrl;
+
+        String fromReplica = replicaRedisTemplate.opsForValue().get(cacheKey);
+        String fromPrimary = primaryRedisTemplate.opsForValue().get(cacheKey);
+
+        return Map.of(
+            "replica", fromReplica != null ? fromReplica : "MISS",
+            "primary", fromPrimary != null ? fromPrimary : "MISS"
+        );
     }
 
     // Mirrors your original sendFile()

@@ -1,6 +1,7 @@
 package com.hyeonbin.URLShortener.config;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
@@ -24,6 +25,7 @@ public class RedisConfig {
     private int replicaPort;
 
     @Bean
+    @Primary
     public LettuceConnectionFactory primaryConnectionFactory() {
         return new LettuceConnectionFactory(
             new RedisStandaloneConfiguration(primaryHost, primaryPort));
