@@ -1,11 +1,16 @@
 package com.hyeonbin.URLShortener.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hyeonbin.URLShortener.entity.Url;
+import com.hyeonbin.URLShortener.kafka.UrlWriteMessage;
 import com.hyeonbin.URLShortener.repository.UrlRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -21,21 +26,32 @@ public class UrlShortenerService {
     private final UrlRepository repository;
     private final StringRedisTemplate primaryRedisTemplate;
     private final StringRedisTemplate replicaRedisTemplate;
+    private final KafkaTemplate<String, String> kafkaTemplate;
+    private final ObjectMapper objectMapper;
+
+    @Value("${spring.kafka.topic.url-write}")
+    private String urlWriteTopic;
 
     public UrlShortenerService(
             UrlRepository repository,
             @Qualifier("primaryRedisTemplate") StringRedisTemplate primaryRedisTemplate,
-            @Qualifier("replicaRedisTemplate") StringRedisTemplate replicaRedisTemplate) {
+            @Qualifier("replicaRedisTemplate") StringRedisTemplate replicaRedisTemplate,
+            KafkaTemplate<String, String> kafkaTemplate,
+            ObjectMapper objectMapper) {
         this.repository = repository;
         this.primaryRedisTemplate = primaryRedisTemplate;
         this.replicaRedisTemplate = replicaRedisTemplate;
+        this.kafkaTemplate = kafkaTemplate;
+        this.objectMapper = objectMapper;
     }
 
-    // Retrieve long URL
+    // -------------------------------------------------------------------------
+    // READ PATH: replica cache → Cassandra fallback → populate primary cache
+    // -------------------------------------------------------------------------
     public String find(String shortUrl) {
         String cacheKey = CACHE_KEY_PREFIX + shortUrl;
 
-        // Read path: replica cache first.
+        // 1. Try redis replica first
         try {
             String cachedLongUrl = replicaRedisTemplate.opsForValue().get(cacheKey);
             if (cachedLongUrl != null) {
@@ -47,14 +63,14 @@ public class UrlShortenerService {
             LOGGER.warn("Failed to read from Redis replica for key {}", cacheKey, ex);
         }
 
-        // Cache miss on replica, read from Cassandra
+        // 2. Cache miss - fall back to Cassandra
         Optional<Url> result = repository.findById(shortUrl);
         if (result.isEmpty()) {
             return null;
         }
         String longUrl = result.get().getLongUrl();
 
-        // Cache-aside write-back to primary Redis after DB hit.
+        // 3. Populate primary cache (replicates to replicas)
         try {
             primaryRedisTemplate.opsForValue().set(cacheKey, longUrl, Duration.ofMinutes(1));
             LOGGER.info("Cache populated for key: {}", cacheKey);
@@ -65,10 +81,30 @@ public class UrlShortenerService {
         return longUrl;
     }
 
-    // Save short → long mapping
+
+    // -------------------------------------------------------------------------
+    // WRITE PATH: publish to Kafka → Writer Service handles Cassandra write
+    // -------------------------------------------------------------------------
     public void save(String shortUrl, String longUrl) {
-        // Write-around: only write to Cassandra, skip Redis.
-        Url url = new Url(shortUrl, longUrl, Instant.now());
-        repository.save(url);
+        UrlWriteMessage message = new UrlWriteMessage(
+            shortUrl,
+            longUrl,
+            Instant.now().toString() // ISO-8601, safe for JSON
+        );
+        String json = toJsonString(message);
+        kafkaTemplate.send(urlWriteTopic, shortUrl, json);
+        LOGGER.info("Published URL write event to Kafka topic '{}' for key: {}", urlWriteTopic, shortUrl);
+    }
+
+
+    // -------------------------------------------------------------------------
+    // Utility
+    // -------------------------------------------------------------------------
+    private String toJsonString(Object object) {
+        try {
+            return objectMapper.writeValueAsString(object);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("Failed to serialize message to JSON", e);
+        }
     }
 }

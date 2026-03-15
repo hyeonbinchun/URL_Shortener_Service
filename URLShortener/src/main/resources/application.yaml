@@ -3,6 +3,8 @@ spring:
     name: url_shortener
   
   kafka:
+    topic:
+      url-write: url.write
     bootstrap-servers: 3.80.85.4:9092
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
