@@ -1,4 +1,4 @@
-package com.hyeonbin.url_write_consumer;
+package com.hyeonbin.url_write_consumer.kafka;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
