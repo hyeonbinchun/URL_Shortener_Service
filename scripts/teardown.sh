@@ -3,10 +3,14 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CASSANDRA="$SCRIPT_DIR/../cassandra"
 REDIS="$SCRIPT_DIR/../redis"
 SPRING="$SCRIPT_DIR/../URLShortener"
+CONSUMER="$SCRIPT_DIR/../url-write-consumer"
 
 echo "Tearing down Spring Boot..."
 kubectl delete -f "$SPRING/spring-deployment.yaml" --ignore-not-found
 kubectl delete -f "$SPRING/spring-service.yaml" --ignore-not-found
+
+echo "Tearing down URL write consumer..."
+kubectl delete -f "$CONSUMER/consumer-deployment.yaml" --ignore-not-found
 
 echo "Tearing down Redis..."
 kubectl delete -f "$REDIS/redis-sentinel-statefulset.yaml" --ignore-not-found
