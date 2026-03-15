@@ -11,12 +11,9 @@ spring:
 
 app:
   redis:
-    primary:
-      host: redis-primary-service.redis.svc.cluster.local  # cross-namespace DNS
-      port: 6379
-    replica:
-      host: redis-replica-service.redis.svc.cluster.local  # cross-namespace DNS
-      port: 6379
+    sentinel:
+      master: ${REDIS_SENTINEL_MASTER:mymaster}
+      nodes: ${REDIS_SENTINEL_NODES:redis-sentinel-0.redis-sentinel-headless.redis.svc.cluster.local:26379,redis-sentinel-1.redis-sentinel-headless.redis.svc.cluster.local:26379,redis-sentinel-2.redis-sentinel-headless.redis.svc.cluster.local:26379}
 
 server:
   port: 8080

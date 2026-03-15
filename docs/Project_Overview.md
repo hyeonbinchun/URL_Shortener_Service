@@ -177,13 +177,11 @@ Handled by:
 - Kubernetes StatefulSet can reschedule failed pods; data is automatically rebalanced.
 
 ### Redis Primary failure
-- **Failure detection**: Kubernetes liveness probes (or Redis Sentinel/operator) detect Primary pod failure.
-- **Replica promotion**: One of the existing Replicas is promoted to Primary. The operator updates client connections to the new Primary.
-- **Client behavior**: The API service or Redis client automatically redirects writes to the new Primary.
-- **Persistence**:
-    Relies on replica's in-memory copy replicated from the old Primary.
+- **Failure detection**: Sentinel Detect Primary pod failure.
+- **Replica promotion**: One of the existing Replicas is promoted to Primary. 
+- **Client behavior**: The API service automatically redirects writes to the new Primary.
+- **Persistence**: Relies on replica's in-memory copy replicated from the old Primary.
 - **Data guarantees**: No data is lost if replication was up-to-date at the time of Primary failure.
-
 
 ### Redis Replica failure:
 - Can be replaced dynamically by adding a new Replica pod in Kubernetes.

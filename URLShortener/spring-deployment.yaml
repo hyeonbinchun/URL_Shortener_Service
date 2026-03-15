@@ -32,6 +32,11 @@ spec:
               value: "url_shortener"
             - name: SPRING_CASSANDRA_LOCAL_DATACENTER
               value: "datacenter1"
+            - name: REDIS_SENTINEL_MASTER
+              value: "mymaster"
+            - name: REDIS_SENTINEL_NODES
+              value: "redis-sentinel-0.redis-sentinel-headless.redis.svc.cluster.local:26379,redis-sentinel-1.redis-sentinel-headless.redis.svc.cluster.local:26379,redis-sentinel-2.redis-sentinel-headless.redis.svc.cluster.local:26379"
+              
           
           
 

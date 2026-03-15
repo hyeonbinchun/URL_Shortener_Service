@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis-sentinel
+  namespace: redis
+spec:
+  serviceName: redis-sentinel-headless
+  replicas: 3
+  selector:
+    matchLabels:
+      app: redis-sentinel
+  template:
+    metadata:
+      labels:
+        app: redis-sentinel
+    spec:
+      initContainers:
+        - name: init-sentinel-config
+          image: redis:7.2-alpine
+          command: ["/bin/sh", "-c"]
+          args:
+            - cp /config/sentinel.conf /etc/redis/sentinel.conf
+          volumeMounts:
+            - name: sentinel-config
+              mountPath: /config
+            - name: sentinel-config-writable
+              mountPath: /etc/redis
+      containers:
+        - name: redis-sentinel
+          image: redis:7.2-alpine
+          ports:
+            - containerPort: 26379
+              name: sentinel
+          command: ["/bin/sh", "-c"]
+          args:
+            - exec redis-sentinel /etc/redis/sentinel.conf
+          readinessProbe:
+            exec:
+              command: ["redis-cli", "-p", "26379", "ping"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["redis-cli", "-p", "26379", "ping"]
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          volumeMounts:
+            - name: sentinel-config-writable
+              mountPath: /etc/redis
+      volumes:
+        - name: sentinel-config
+          configMap:
+            name: redis-sentinel-config
+        - name: sentinel-config-writable
+          emptyDir: {}
