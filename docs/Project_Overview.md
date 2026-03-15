@@ -30,10 +30,10 @@ The system prioritizes:
 | Layer | Technology | Reasoning | 
 | :--- | :--- | :--- |
 | API Service | Java + Spring Boot | Fast development
-| Writer Service | Java + Spring Boot | Kafka consumer for DB writes
 | Cache | Redis | Low-latency reads
 | Database | Apache Cassandra | Horizontal scalability
 | Streaming | Kafka | Async writes
+| Writer Service | Java + Spring Boot | Kafka consumer for DB writes
 | Containeralization | Docker | Environment isolation
 | Orchestration | Kubernetes | Scaling and self-healing
 | Observability | Prometheus + Grafana | Metrics collection and visualization
@@ -43,48 +43,106 @@ The system prioritizes:
 ### 2.3 System Architecture
 
 ```
-# Full Architecture Plan
+# Full Architecture
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           OBSERVABILITY LAYER                               │
+│                                                                             │
+│   k6 (Load Generator) ──────► Prometheus ──────► Grafana                    │
+│                                    ▲                                        │
+│                                    │ scrape                                 │
+└────────────────────────────────────┼────────────────────────────────────────┘
+                                     │
+                         ┌───────────┴───────────┐
+                         │      API SERVICE      │
+                         │     (Spring Boot)     │
+                         └─────┬──────────┬──────┘
+              READ PATH        │          │    WRITE PATH
+          ┌────────────────────┘          └─────────────────────┐
+          │                                                     │  
+          ▼                                                     ▼
+┌────────────────────────────────────────┐              ┌──────────────────────┐
+│                REDIS                   │              │        KAFKA         │
+│                                        │              │   (url.write topic)  │
+│  ┌──────────────┐  replicates          │              └──────────┬───────────┘
+│  │ Redis Primary│──────────────┐       │                         │
+│  │ (writes)     │              ▼       │                         ▼
+│  └──────┬───────┘  ┌─────────────────┐ │            ┌───────────────────────────┐
+│         │          │ Redis Replica 1 │ │            │      WRITER SERVICE       │
+│         │          │ (reads)         │ │            │   (Spring Boot Consumer)  │
+│         │          └─────────────────┘ │            │   @RetryableTopic         │
+│         │          ┌─────────────────┐ │            │   3 retries, exp. backoff │
+│         └─────────►│ Redis Replica 2 │ │            └─────────────┬─────────────┘
+│                    │ (reads)         │ │                          │
+│                    └─────────────────┘ │                          │
+│  ┌──────────────────────────────┐      │                          │ on success
+│  │                              │      │                          │
+│  │     SENTINEL PODS (×3)       │      │                          ▼
+│  │  monitors: mymaster          │      │                ┌────────────────────┐
+│  │  quorum: 2                   │      │                │     CASSANDRA      │
+│  │  auto-promotes replica on    │      │                │  (url_shortener)   │
+│  │  primary failure             │      │                └────────────────────┘
+│  └──────────────────────────────┘      │
+└──────────────────┬─────────────────────┘
+                   │ cache miss → read from DB, populates Redis Primary 
+                   │ cache hit  → return immediately
+                   ▼
+          ┌────────────────────┐
+          │     CASSANDRA      │
+          │  (url_shortener)   │
+          └────────────────────┘
 
-Load Generator (k6) → Prometheus → Grafana
-    ↓
-Client / Virtual Users
-    ↓
-API Service (Producer) 
-    ↓                    
--------------------- READ PATH --------------------
-    │
-    ├─> Read Redis Replicas (Cache Hit)
-    │
-    └─> Cache Miss:
-            │
-            ├─> Cassandra DB
-            │
-            └─> Updates Redis Primary → propagates to Replicas
 
+══════════════════════════ FAULT TOLERANCE PATH ══════════════════════════════
 
--------------------- WRITE PATH -------------------
-    │
-    └─> Kafka
-                ↓   
-    Writer Service (Consumer)
-                ↓
-    Cassandra DB + Logging
+   WRITER SERVICE
+        │
+        │ retry 1 → retry 2 → retry 3 (exponential backoff: 1s, 2s, 4s)
+        │
+        │ all retries exhausted
+        ▼
+┌─────────────────────┐
+│   KAFKA DLT TOPIC   │
+│  (url.write.dlt)    │
+└──────────┬──────────┘
+           │
+           ▼
+┌────────────────────────┐
+│     DLT CONSUMER       │
+│  (UrlWriteDltService)  │
+└──────────┬─────────────┘
+           │ persists failed event
+           ▼
+┌──────────────────────────────────────────────────────┐
+│              CASSANDRA · failed_messages              │
+│  id · topic · partition · offset · message_key       │
+│  payload · error_message · failed_at                 │
+└──────────────────────────────────────────────────────┘
+           │
+           └──► No write is silently dropped.
+                Failed events available for inspection or replay.
 ```
 
 **Read Path (Synchronous) - Cache Aside**:
-1. Reads go to Redis Replicas first.
-2. On cache miss → read from Cassandra, then populate Redis Primary, which replicates to Replicas.
+1. Read request hits Redis Replicas first.
+2. Cache hit → return immediately.
+3. Cache miss → read from Cassandra → populate Redis Primary → replicates to Replicas.
+4. Redis Sentinel (×3) monitors the Primary; on failure, promotes a Replica to Primary (quorum = 2).
+
 
 **Write Path (Asynchronous) - Write Around**:
-1. Queue write request to Kafka → return immediately (non-blocking)
-2. API writes are pushed to Kafka → Writer Service handles DB writes.
-3. Writer Service logs write operations for observability.
+1. API enqueues write to Kafka → returns immediately (non-blocking).
+2. Writer Service consumes from Kafka → writes to Cassandra.
+3. On failure: retried up to 3 times with exponential backoff (1s, 2s, 4s).
+4. All retries exhausted → message routed to Dead Letter Topic (url.write.dlt).
+5. DLT Consumer (UrlWriteDltService) persists failed event to Cassandra (failed_messages table) for inspection or replay.
+
 
 **Separation of responsibilities**:
 - Kafka: durable message transport only.
-- Writer Service: writes to Cassandra, logs.
-- Redis Primary: receives lazy population from read misses; no direct write during writes.
-
+- Writer Service: consumes from Kafka, writes to Cassandra, logs outcomes, handles retries.
+- DLT Consumer: consumes from url.write.dlt, persists failed events — ensures no write is silently dropped.
+- Redis Primary: populated lazily on cache miss only; never written to directly during the write path.
+- Redis Sentinels: monitor Primary health, coordinate automatic failover — transparent to the API Service.
 
 
 ## 3. System Design Decisions
@@ -241,131 +299,6 @@ Handled by:
 - Full architecture setup
 
 **Note**: Because the system runs on a single EC2 node, hardware resources become the global bottleneck. Therefore, horizontal scaling benefits are limited. However, architectural optimizations such as caching and asynchronous processing still provide significant performance improvements.
-
-
-## 8. Infrastructure Setup (for measurements, not for demo)
-
-To keep the setup simple and avoid unnecessary complexity, we demonstrate the architecture using a minimal AWS configuration.
-
-### Single-Node Simulation 
-
-This project runs on a single EC2 instance to keep infrastructure costs minimal.
-While components like Cassandra and the API service are deployed as multiple pods,
-they share the same physical host — so this setup simulates distributed behavior
-rather than providing true distributed fault isolation.
-
-What this setup validly demonstrates:
-- API horizontal scaling: k3s load balances real traffic across multiple pods
-- Cache effectiveness: Redis hit/miss ratio and latency improvement are genuine
-- Async write decoupling: Kafka offloads writes from the API response path
-
-What requires a multi-node setup to demonstrate properly:
-- Cassandra fault tolerance (node failure with data still available)
-- True Cassandra read/write throughput scaling across nodes
-- Network partition and split-brain scenarios
-
-
-### EC2 #1: Load Tester 
-The load testing tool (k6) must run independently from the system under test (backend services, databases, etc.). This separation is important because the load tester itself generates traffic and consumes computing resources such as CPU and memory. Running it on a separate instance ensures the test results are not skewed by resource contention.
-
-### EC2 #2: Service Node
-Runs the core application stack:
-- API
-- Writer
-- Redis
-- Cassandra
-- Kafka
-- Observability tools
-
-### Orchestration: k3s
-- Installs in ~5 minutes
-- Lightweight compared to full Kubernetes distributions
-- Still provides a real Kubernetes environment
-
-
-### AWS Architecture
-
-```
-AWS VPC (default)
-
-    EC2 #1 load-tester
-        ↓
-    EC2 #2 service-node
-    (k3s cluster)
-        │
-        ├── API Service Pods (3 pods)
-        ├── Writer Service Pod (1 pod)
-        │
-        ├── Redis (3 pods: 1 master + 2 replicas) + Redis Sentinel (3 pods)
-        │
-        ├── Cassandra (3 nodes(pods) with rf=2)
-        │
-        ├── Kafka (external, separate EC2 or managed service)
-        │
-        ├── Prometheus
-        └── Grafana
-```
-
-> **Note:** Kafka runs externally (outside the k3s cluster). The bootstrap server address is configured via env var `SPRING_KAFKA_BOOTSTRAP_SERVERS`. Prometheus and Grafana manifests are included in `observability/` but may be omitted from the test run in favour of the k6 built-in dashboard.
-
-## EC2 Instance Recommendation
-
-The EC2 instance type used in this project is chosen purely to ensure all pods
-can run stably without OOM failures — not to maximize throughput or minimize latency.
-
-The benchmark goal is to measure the **relative improvement** between two configurations:
-- **Baseline**: 1 API pod, 1 Cassandra node, no cache, no async writes
-- **Full architecture**: 3 API pods, 3 Cassandra nodes, Redis, Kafka
-
-Since both configurations run on the **same EC2 instance**, the hardware is a constant.
-The delta in throughput, latency, and error rate between the two runs reflects
-architectural differences only — not vertical scaling.
-
-In other words, a more powerful instance would shift both results upward equally,
-but would not change the conclusion about what the distributed architecture gains you.
-
-| EC # | Type | Reasoning | 
-| :--- | :--- | :--- |
-| Load tester | `t3.medium` | CPU matters for k6
-| Service node | `t4g.xlarge` | Cassandra + Redis + Kafka need RAM
-
-## Networking
-```
-                    User Request   
-                         │
-                         │
-                         │
-┌────────────────────────┼─────────────────────────┐
-│  Kubernetes Cluster    │                         │
-│                        │                         │
-│  Namespace: default    │                         │
-│  ┌─────────────────────▼────────────────────┐    │
-│  │ spring-service (NodePort :30080)         │    │
-│  └───────────────┬──────────────────────────┘    │
-│                  │ routes to                     │
-│  [Deployment] ──manages───────────────────────┐  │                   
-│  ┌───────────────▼──────────────────────────┐ │  │
-│  │ Spring Pod 1                             │ │  │
-│  │ Spring Pod 2  (spring-deployment)        │ │  │
-│  │ Spring Pod 3                             │ │  │
-│  │                                          │ │  │
-│  │  Controller → Service → Repository       │ │  │
-│  │                    │                     │ │  │
-│  └────────────────────┼─────────────────────┘ │  │
-│  └────────────────────┼───────────────────────┘  │ 
-│                       │ DNS across namespaces    │
-│  Namespace: cassandra │                          │
-│  [StatefulSet] ──manages──────────────────────┐  │ 
-│  ┌────────────────────▼─────────────────────┐ │  │
-│  │ Headless Service (cassandra-service)     │ │  │
-│  │ cassandra.cassandra.svc.cluster.local    │ │  │
-│  └───────┬───────────┬───────────┬──────────┘ │  │
-│  │       │           │           │            │  │
-│  │    [cass-0]    [cass-1]    [cass-2]        │  │
-│  └────────────────────────────────────────────┘  │ 
-└──────────────────────────────────────────────────┘
-```
-
 
 ## Future:
 - Multi-Node Environment
