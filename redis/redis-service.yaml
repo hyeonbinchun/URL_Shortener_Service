@@ -6,37 +6,7 @@ metadata:
 spec:
   clusterIP: None
   selector:
-    app: redis          # matches both primary and replica pods
-  ports:
-    - port: 6379
-      targetPort: 6379
-      
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: redis-primary-service
-  namespace: redis
-spec:
-  selector:
     app: redis
-    role: primary
   ports:
     - port: 6379
       targetPort: 6379
-  type: ClusterIP
-
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: redis-replica-service
-  namespace: redis
-spec:
-  selector:
-    app: redis
-    role: replica
-  ports:
-    - port: 6379
-      targetPort: 6379
-  type: ClusterIP

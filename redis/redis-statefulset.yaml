@@ -1,0 +1,101 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis
+  namespace: redis
+spec:
+  serviceName: redis-headless
+  replicas: 3
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      initContainers:
+        - name: resolve-master
+          image: redis:7.2-alpine
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -e
+              ordinal="${HOSTNAME##*-}"
+
+              # pod-0 bootstraps as master on first boot.
+              # On restart, AOF/RDB data is already on disk and sentinel will
+              # re-establish replication, so writing an empty replicaof is safe.
+              if [ "$ordinal" = "0" ]; then
+                echo "" > /etc/redis/replicaof.conf
+                exit 0
+              fi
+
+              # Wait until pod-0 is reachable before starting as a replica.
+              # Prevents a replica from starting before the master is ready
+              # on fresh cluster init.
+              until redis-cli -h redis-0.redis-headless.redis.svc.cluster.local ping | grep -q PONG; do
+                echo "Waiting for redis-0..."
+                sleep 2
+              done
+
+              echo "replicaof redis-0.redis-headless.redis.svc.cluster.local 6379" > /etc/redis/replicaof.conf
+          volumeMounts:
+            - name: redis-config
+              mountPath: /etc/redis
+
+      containers:
+        - name: redis
+          image: redis:7.2-alpine
+          ports:
+            - containerPort: 6379
+              name: redis
+          command: ["redis-server"]
+          args:
+            - --appendonly
+            - "yes"
+            - --maxmemory
+            - "200mb"
+            - --maxmemory-policy
+            - "allkeys-lru"
+            - --include
+            - /etc/redis/replicaof.conf
+          volumeMounts:
+            - name: redis-data
+              mountPath: /data
+            - name: redis-config
+              mountPath: /etc/redis
+          livenessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+
+      volumes:
+        - name: redis-config
+          emptyDir: {}
+
+  volumeClaimTemplates:
+    - metadata:
+        name: redis-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi

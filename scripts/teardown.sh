@@ -12,8 +12,7 @@ echo "Tearing down Redis..."
 kubectl delete -f "$REDIS/redis-sentinel-statefulset.yaml" --ignore-not-found
 kubectl delete -f "$REDIS/redis-sentinel-service.yaml" --ignore-not-found
 kubectl delete -f "$REDIS/redis-sentinel-configmap.yaml" --ignore-not-found
-kubectl delete -f "$REDIS/redis-replica-statefulset.yaml" --ignore-not-found
-kubectl delete -f "$REDIS/redis-primary-statefulset.yaml" --ignore-not-found
+kubectl delete -f "$REDIS/redis-statefulset.yaml" --ignore-not-found
 kubectl delete -f "$REDIS/redis-service.yaml" --ignore-not-found
 
 echo "Tearing down Cassandra..."
