@@ -7,12 +7,12 @@ This service allows you to shorten URLs and redirect users using a short code.
 **Example:**
 - Shorten a URL:
   ```bash
-  curl -i -X PUT 'http://localhost:8080/?short=abc&long=http://example.com'
+  curl -i -X PUT 'http://localhost:30000/?short=abc&long=http://example.com'
   curl -i -X PUT 'http://35.171.88.228:30000/?short=abc&long=http://example.com'
   ```
 - Redirect using short code:
   ```bash
-  curl -i 'http://localhost:8080/abc'
+  curl -i 'http://localhost:30000/abc'
   curl -i 'http://35.171.88.228:30000/abc'
   ```
 
