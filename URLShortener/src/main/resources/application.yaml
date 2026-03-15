@@ -2,6 +2,12 @@ spring:
   application:
     name: url_shortener
   
+  kafka:
+    bootstrap-servers: 3.80.85.4:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+
   cassandra:
     contact-points: cassandra.cassandra.svc.cluster.local  # cross-namespace DNS
     port: 9042
