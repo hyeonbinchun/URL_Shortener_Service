@@ -64,7 +64,7 @@ API Service (Producer)
 
 -------------------- WRITE PATH -------------------
     │
-    └─> Kafka (Durable Log)
+    └─> Kafka
                 ↓   
     Writer Service (Consumer)
                 ↓
@@ -82,7 +82,7 @@ API Service (Producer)
 
 **Separation of responsibilities**:
 - Kafka: durable message transport only.
-- Writer Service: writes to Cassandra, invalidates cache, logs events.
+- Writer Service: writes to Cassandra, logs.
 - Redis Primary: receives lazy population from read misses; no direct write during writes.
 
 
@@ -106,7 +106,7 @@ API Service (Producer)
 
 ### 3.4 Writer Service (Separate Consumer)
 - Handles writes asynchronously from Kafka
-- Updates Cassandra and invalidates Redis cache
+- Updates Cassandra
 - Logs operations:
     - Kafka message consumption status (success/failure)
     - Cassandra write success/failure

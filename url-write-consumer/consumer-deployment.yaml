@@ -23,7 +23,7 @@ spec:
             - containerPort: 8080
           env:
             - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
-              value: "3.80.85.4:9092"
+              value: "3.87.112.165:9092"
             - name: SPRING_CASSANDRA_CONTACT_POINTS
               value: "cassandra.cassandra.svc.cluster.local"
             - name: SPRING_CASSANDRA_PORT

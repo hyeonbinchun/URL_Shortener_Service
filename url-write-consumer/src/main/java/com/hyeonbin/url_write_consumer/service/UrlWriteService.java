@@ -10,6 +10,8 @@ import org.springframework.stereotype.Service;
 import com.hyeonbin.url_write_consumer.entity.Url;
 import com.hyeonbin.url_write_consumer.kafka.UrlWriteMessage;
 import com.hyeonbin.url_write_consumer.repository.UrlRepository;
+import org.springframework.kafka.annotation.RetryableTopic;
+import org.springframework.retry.annotation.Backoff;
 
 @Service
 public class UrlWriteService {
@@ -20,6 +22,11 @@ public class UrlWriteService {
     public UrlWriteService(UrlRepository urlRepository) {
         this.urlRepository = urlRepository;
     }
+    @RetryableTopic(
+        attempts = "3",
+        backoff = @Backoff(delay = 1000, multiplier = 2),
+        dltTopicSuffix = ".dlt"
+    )
 
     @KafkaListener(
         topics = "${spring.kafka.topic.url-write}",
@@ -28,7 +35,11 @@ public class UrlWriteService {
     public void consume(String message) {
         LOGGER.info("Received message from Kafka: {}", message);
         UrlWriteMessage urlWriteMessage = UrlWriteMessage.fromJson(message);
-
+        // test for failed message
+        if (urlWriteMessage.getShortUrl().equals("fail-retry")) {
+            LOGGER.warn("Simulating failure for shortUrl='fail-retry'");
+            throw new RuntimeException("Simulated failure for testing");
+        }
         Url url = new Url(
             urlWriteMessage.getShortUrl(),
             urlWriteMessage.getLongUrl(),

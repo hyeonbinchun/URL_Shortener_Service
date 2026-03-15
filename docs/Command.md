@@ -29,3 +29,6 @@ kubectl exec -it cassandra-0 -n cassandra -- nodetool status
 kubectl exec -it cassandra-0 -n cassandra -- nodetool removenode <host-id>
 ### delete vol 
 kubectl delete pvc -n cassandra --all
+
+### create failed messages table (one-time)
+kubectl exec -it cassandra-0 -n cassandra -- cqlsh -e "CREATE TABLE IF NOT EXISTS url_shortener.failed_messages (id uuid PRIMARY KEY, topic text, partition_id int, offset_value bigint, message_key text, payload text, error_message text, failed_at timestamp);"
