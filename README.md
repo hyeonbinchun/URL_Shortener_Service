@@ -14,26 +14,7 @@ A horizontally scalable, fault-tolerant URL shortener built to demonstrate distr
 ---
 
 ## Architecture Overview
-
-```
-k6 (Load Generator) ──metrics──> Prometheus ──> Grafana
-
-Client
-  │
-  ▼
-API Service (Spring Boot)  ←──── Redis Sentinel (3 pods)
-  │                                      │
-  │ READ PATH                    redis-0 (master)
-  │                              redis-1 (replica)
-  ├─ Redis replica (cache hit)   redis-2 (replica)
-  └─ Cache miss → Cassandra → populate Redis primary
-  │
-  │ WRITE PATH (async)
-  └─> Kafka ──> Writer Service (Spring Boot)
-                    │
-                    ├─ Cassandra (url_shortener.urls)
-                    └─ DLT   → Cassandra (url_shortener.failed_messages)
-```
+![Architecture Diagram](docs/architecture.png)
 
 ### Tech Stack
 
