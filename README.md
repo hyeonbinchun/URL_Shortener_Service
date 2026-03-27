@@ -14,7 +14,11 @@ A horizontally scalable, fault-tolerant URL shortener built to demonstrate distr
 ---
 
 ## Architecture Overview
-![Architecture Diagram](docs/architecture.png)
+### Architecture Diagram
+
+<p align="center">
+  <img src="docs/images/architecture.png" alt="Architecture Diagram" width="1000" style="max-width: 100%; height: auto;" />
+</p>
 
 ### Tech Stack
 
