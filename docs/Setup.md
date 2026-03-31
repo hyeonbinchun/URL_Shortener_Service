@@ -35,6 +35,50 @@ curl -sfL https://get.k3s.io | sh -
 export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
 ```
 
+### Install AWS EBS CSI Driver (for network-backed PVCs)
+
+Install the AWS EBS CSI driver in your cluster before deploying Cassandra/Redis:
+
+```bash
+helm repo add aws-ebs-csi-driver https://kubernetes-sigs.github.io/aws-ebs-csi-driver
+helm repo update
+
+kubectl create namespace kube-system --dry-run=client -o yaml | kubectl apply -f -
+helm upgrade --install aws-ebs-csi-driver aws-ebs-csi-driver/aws-ebs-csi-driver \
+  -n kube-system
+```
+
+Create the project StorageClass:
+
+```bash
+kubectl apply -f storage/ebs-gp3-storageclass.yaml
+kubectl get storageclass
+```
+
+Expected class for this project: `ebs-csi-gp3` (provisioner: `ebs.csi.aws.com`).
+
+### Non-Production Migration: local-path -> EBS CSI (k3s on EC2)
+
+If this is a portfolio/non-production environment, the fastest migration is a destructive reset of StatefulSet PVCs.
+
+```bash
+chmod +x scripts/migrate-to-ebs-nonprod.sh
+./scripts/migrate-to-ebs-nonprod.sh
+```
+
+What this script does:
+1. Applies `storage/ebs-gp3-storageclass.yaml`.
+2. Sets `ebs-csi-gp3` as default StorageClass and removes default flag from `local-path`.
+3. Deletes Redis StatefulSets and PVCs, then recreates them.
+4. Deletes Cassandra StatefulSet and PVCs, then recreates it.
+5. Verifies new PVCs in `cassandra` and `redis` namespaces.
+
+Verify resulting PVC storage classes:
+
+```bash
+kubectl get pvc -A -o custom-columns=NAMESPACE:.metadata.namespace,NAME:.metadata.name,SC:.spec.storageClassName,STATUS:.status.phase
+```
+
 ### Install Kafka (external, on `service-node` or separate host)
 
 Kafka runs outside the k3s cluster. After starting a Kafka broker, update the bootstrap-servers address in both `URLShortener/src/main/resources/application.yaml` and `url-write-consumer/src/main/resources/application.yaml`, then rebuild the images.
