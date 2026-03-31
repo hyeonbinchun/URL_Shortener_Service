@@ -17,9 +17,25 @@
 docker build -t spring-server .
 ```
 
+### Build Docker Image for URL Write Consumer
+```
+docker build -t url-write-consumer .
+```
+
 ### List Docker image files
 ```
 docker image ls
+```
+
+## Kubernetes Deploy Scripts
+### Deploy URLShortener API
+```
+./scripts/deploy-urlshortener.sh
+```
+
+### Deploy URL Write Consumer
+```
+./scripts/deploy-url-write-consumer.sh
 ```
 
 ## Cassandra

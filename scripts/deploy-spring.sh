@@ -2,29 +2,10 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-SPRING="$SCRIPT_DIR/../URLShortener"
-CONSUMER="$SCRIPT_DIR/../url-write-consumer"
 
-build_image() {
-	local image_name="$1"
-	local context_dir="$2"
+echo "deploy-spring.sh is deprecated. Use deploy-urlshortener.sh and deploy-url-write-consumer.sh."
 
-	echo "Building ${image_name} image..."
-	docker build -t "$image_name" "$context_dir"
-}
+"$SCRIPT_DIR/deploy-urlshortener.sh"
+"$SCRIPT_DIR/deploy-url-write-consumer.sh"
 
-if [[ "${SKIP_IMAGE_BUILD:-0}" != "1" ]]; then
-	build_image spring-server "$SPRING"
-	build_image url-write-consumer "$CONSUMER"
-fi
-
-echo "Deploying Spring Boot API..."
-kubectl apply -f "$SPRING/spring-service.yaml"
-kubectl apply -f "$SPRING/spring-deployment.yaml"
-
-echo "Deploying URL write consumer..."
-kubectl apply -f "$CONSUMER/consumer-deployment.yaml"
-
-kubectl rollout status deployment/spring-deployment --timeout=120s
-kubectl rollout status deployment/consumer-deployment --timeout=120s
 echo "Application stack is ready."

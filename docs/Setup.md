@@ -165,14 +165,21 @@ kubectl exec -n redis redis-sentinel-0 -- redis-cli -p 26379 SENTINEL get-master
 
 ```bash
 cd scripts
-./deploy-spring.sh
+./deploy-urlshortener.sh
+./deploy-url-write-consumer.sh
 ```
 
-This script:
-1. Builds the `spring-server` Docker image from `URLShortener/`
-2. Builds the `url-write-consumer` Docker image from `url-write-consumer/`
-3. Applies the Kubernetes manifests for the API Service and Writer Service
-4. Waits for both deployments to be healthy
+These scripts:
+1. Build the `spring-server` Docker image from `URLShortener/`
+2. Build the `url-write-consumer` Docker image from `url-write-consumer/`
+3. Apply the Kubernetes manifests for the API Service and Writer Service
+4. Wait for each deployment to be healthy
+
+Legacy combined command is still available:
+
+```bash
+./deploy-spring.sh
+```
 
 > **Tip**: If you rebuild images using the same tag (`spring-server`, `url-write-consumer`), restart the deployments to pick up the new image:
 > ```bash
