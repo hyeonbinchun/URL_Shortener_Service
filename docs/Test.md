@@ -34,11 +34,10 @@ These targets were used for progressive load experiments:
 
 | VUs | Ramp-up | Steady | Ramp-down |
 | :--- | :--- | :--- | :--- |
-| 3,000 | 1 min | 3 min | 1 min |
-| 5,000 | 2 min | 5 min | 1 min |
-| 7,000 | 3 min | 7 min | 1 min |
-| 10,000 | 4 min | 7 min | 1 min |
-| 12,000 | 5 min | 8 min | 1 min |
+| 1,000 | 1 min | 3 min | 1 min |
+| 2,000 | 2 min | 5 min | 1 min |
+| 3,000 | 3 min | 7 min | 1 min |
+| 5,000 | 4 min | 7 min | 1 min |
 
 ---
 
