@@ -3,6 +3,7 @@ package com.hyeonbin.URLShortener.controller;
 import com.hyeonbin.URLShortener.service.UrlShortenerService;
 
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.*;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -64,6 +65,15 @@ public class UrlShortenerController {
             "replica", fromReplica != null ? fromReplica : "MISS",
             "primary", fromPrimary != null ? fromPrimary : "MISS"
         );
+    }
+
+
+    @Value("${HOSTNAME}")
+    private String podName;
+
+    @GetMapping("/whoami")
+    public String whoAmI() {
+        return podName;
     }
 
     // Mirrors your original sendFile()
