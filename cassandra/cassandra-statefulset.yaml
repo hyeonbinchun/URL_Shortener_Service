@@ -7,7 +7,7 @@ metadata:
 
 spec:
   serviceName: cassandra      # Must match the headless service
-  replicas: 3                 # 3 Cassandra pods
+  replicas: 1                 # 3 Cassandra pods
   selector:                   # This StatefulSet manages pods with label app=cassandra
     matchLabels:
       app: cassandra         
@@ -16,6 +16,7 @@ spec:
       labels:
         app: cassandra        # This label is how the Service finds these pods
     spec:
+      dnsPolicy: ClusterFirst          # Ensure DNS traffic goes through cluster DNS
       containers:
         - name: cassandra
           image: cassandra:4.1
