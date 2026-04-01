@@ -15,6 +15,17 @@ spec:
       labels:
         app: backend-app
     spec:
+      initContainers:
+        - name: wait-for-cassandra
+          image: busybox
+          command:
+            - sh
+            - -c
+            - |
+              until nslookup cassandra.cassandra.svc.cluster.local; do
+                echo "Waiting for Cassandra DNS...";
+                sleep 5;
+              done
       containers:
         - name: spring-container
           image: owenchun/spring-server
