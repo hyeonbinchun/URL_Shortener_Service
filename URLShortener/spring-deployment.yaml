@@ -4,19 +4,28 @@ kind: Deployment
 metadata:
   name: spring-deployment
 
-# Deployment specification
 spec:
   replicas: 2
   selector:
     matchLabels:
       app: backend-app
   
-  # Define pod we want to deploy
   template:
     metadata:
       labels:
         app: backend-app
     spec:
+      initContainers:
+        - name: wait-for-cassandra
+          image: busybox
+          command:
+            - sh
+            - -c
+            - |
+              until nslookup cassandra.cassandra.svc.cluster.local; do
+                echo "Waiting for Cassandra DNS...";
+                sleep 5;
+              done
       containers:
         - name: spring-container
           image: owenchun/spring-server
@@ -24,7 +33,7 @@ spec:
           ports:
             - containerPort: 8080
           env:
-            - name: SPRING_CASSANDRA_CONTACT_POINTS   # overrides application.properties
+            - name: SPRING_CASSANDRA_CONTACT_POINTS
               value: "cassandra.cassandra.svc.cluster.local"
             - name: SPRING_CASSANDRA_PORT
               value: "9042"
@@ -36,9 +45,10 @@ spec:
               value: "mymaster"
             - name: REDIS_SENTINEL_NODES
               value: "redis-sentinel-0.redis-sentinel-headless.redis.svc.cluster.local:26379,redis-sentinel-1.redis-sentinel-headless.redis.svc.cluster.local:26379,redis-sentinel-2.redis-sentinel-headless.redis.svc.cluster.local:26379"
-              
-          
-          
-
-
-
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            failureThreshold: 4
