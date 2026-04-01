@@ -17,8 +17,8 @@ spec:
     spec:
       containers:
         - name: spring-container
-          image: owenchun/spring-server
-          imagePullPolicy: Always
+          image: spring-server
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
           env:
