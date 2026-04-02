@@ -24,6 +24,7 @@ public class UrlShortenerService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(UrlShortenerService.class);
     private static final String CACHE_KEY_PREFIX = "url:";
+    private static final Duration CACHE_TTL = Duration.ofMinutes(15);
 
     private final UrlRepository repository;
     private final ObjectProvider<StringRedisTemplate> primaryRedisTemplateProvider;
@@ -66,10 +67,10 @@ public class UrlShortenerService {
                 if (replicaRedisTemplate != null) {
                     String cachedLongUrl = replicaRedisTemplate.opsForValue().get(cacheKey);
                     if (cachedLongUrl != null) {
-                        LOGGER.info("Cache HIT for key: {}", cacheKey);
+                        LOGGER.debug("Cache HIT for key: {}", cacheKey);
                         return cachedLongUrl;
                     }
-                    LOGGER.info("Cache MISS for key: {}", cacheKey);
+                    LOGGER.debug("Cache MISS for key: {}", cacheKey);
                 } else {
                     LOGGER.warn("Redis replica template is unavailable for key {}", cacheKey);
                 }
@@ -92,8 +93,8 @@ public class UrlShortenerService {
             try {
                 StringRedisTemplate primaryRedisTemplate = primaryRedisTemplateProvider.getIfAvailable();
                 if (primaryRedisTemplate != null) {
-                    primaryRedisTemplate.opsForValue().set(cacheKey, longUrl, Duration.ofMinutes(1));
-                    LOGGER.info("Cache populated for key: {}", cacheKey);
+                    primaryRedisTemplate.opsForValue().set(cacheKey, longUrl, CACHE_TTL);
+                    LOGGER.debug("Cache populated for key: {}", cacheKey);
                 } else {
                     LOGGER.warn("Redis primary template is unavailable for key {}", cacheKey);
                 }
