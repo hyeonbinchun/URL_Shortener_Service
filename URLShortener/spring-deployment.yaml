@@ -5,7 +5,7 @@ metadata:
   name: spring-deployment
 
 spec:
-  replicas: 2
+  replicas: 3
   selector:
     matchLabels:
       app: backend-app
@@ -36,12 +36,6 @@ spec:
               value: "redis-sentinel-0.redis-sentinel-headless.redis.svc.cluster.local:26379,redis-sentinel-1.redis-sentinel-headless.redis.svc.cluster.local:26379,redis-sentinel-2.redis-sentinel-headless.redis.svc.cluster.local:26379"
             - name: APP_WRITE_MODE
               value: "direct"
-          # Exclude Redis auto-configuration
-            - name: SPRING_AUTOCONFIGURE_EXCLUDE
-              value: "org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration,org.springframework.boot.autoconfigure.data.redis.RedisReactiveAutoConfiguration,org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration"
-            # Make Redis health check non-fatal
-            - name: MANAGEMENT_HEALTH_REDIS_ENABLED
-              value: "false"
           livenessProbe:
             httpGet:
               path: /actuator/health

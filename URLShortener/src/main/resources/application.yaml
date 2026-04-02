@@ -19,7 +19,7 @@ spring:
 
 app:
   cache:
-    enabled: false
+    enabled: true
   write:
     mode: kafka
   redis:
