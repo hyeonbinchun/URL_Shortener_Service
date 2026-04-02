@@ -33,7 +33,7 @@ spec:
             - name: REDIS_SENTINEL_MASTER
               value: "mymaster"
             - name: REDIS_SENTINEL_NODES
-              value: "redis-sentinel-0.redis-sentinel-headless.redis.svc.cluster.local:26379,redis-sentinel-1.redis-sentinel-headless.redis.svc.cluster.local:26379,redis-sentinel-2.redis-sentinel-headless.redis.svc.cluster.local:26379"
+              value: "redis-sentinel-service.redis.svc.cluster.local:26379"
             - name: APP_WRITE_MODE
               value: "direct"
           livenessProbe:
