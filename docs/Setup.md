@@ -223,6 +223,24 @@ curl -i "http://$NODE_IP:30000/test"
 curl "http://$NODE_IP:30000/debug/cache/test"
 ```
 
+### Kafka-Down API Scale Test Mode
+
+If Kafka broker is intentionally down and you only want to compare 1 vs 2 API replicas, set API write mode to direct Cassandra writes:
+
+```bash
+kubectl set env deployment/spring-deployment APP_WRITE_MODE=direct
+kubectl rollout restart deployment/spring-deployment
+kubectl rollout status deployment/spring-deployment
+```
+
+Restore normal async write path after Kafka is back:
+
+```bash
+kubectl set env deployment/spring-deployment APP_WRITE_MODE=kafka
+kubectl rollout restart deployment/spring-deployment
+kubectl rollout status deployment/spring-deployment
+```
+
 ---
 
 ## Seed Data (for Load Testing)

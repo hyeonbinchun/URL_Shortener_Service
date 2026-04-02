@@ -18,6 +18,8 @@ spring:
     schema-action: NONE
 
 app:
+  write:
+    mode: kafka
   redis:
     sentinel:
       master: ${REDIS_SENTINEL_MASTER:mymaster}

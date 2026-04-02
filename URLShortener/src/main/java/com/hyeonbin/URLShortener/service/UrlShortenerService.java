@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Locale;
 import java.util.Optional;
 
 @Service
@@ -31,6 +32,9 @@ public class UrlShortenerService {
 
     @Value("${spring.kafka.topic.url-write}")
     private String urlWriteTopic;
+
+    @Value("${app.write.mode:kafka}")
+    private String writeMode;
 
     public UrlShortenerService(
             UrlRepository repository,
@@ -86,6 +90,14 @@ public class UrlShortenerService {
     // WRITE PATH: publish to Kafka → Writer Service handles Cassandra write
     // -------------------------------------------------------------------------
     public void save(String shortUrl, String longUrl) {
+        String normalizedWriteMode = writeMode == null ? "kafka" : writeMode.trim().toLowerCase(Locale.ROOT);
+
+        if ("direct".equals(normalizedWriteMode)) {
+            repository.save(new Url(shortUrl, longUrl, Instant.now()));
+            LOGGER.info("Direct write mode enabled. Saved URL mapping to Cassandra for key: {}", shortUrl);
+            return;
+        }
+
         UrlWriteMessage message = new UrlWriteMessage(
             shortUrl,
             longUrl,
