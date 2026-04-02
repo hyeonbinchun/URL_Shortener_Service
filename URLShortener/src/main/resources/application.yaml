@@ -18,6 +18,8 @@ spring:
     schema-action: NONE
 
 app:
+  cache:
+    enabled: false
   write:
     mode: kafka
   redis:

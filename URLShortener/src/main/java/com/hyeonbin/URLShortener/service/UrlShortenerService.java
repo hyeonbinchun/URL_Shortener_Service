@@ -7,6 +7,7 @@ import com.hyeonbin.URLShortener.kafka.UrlWriteMessage;
 import com.hyeonbin.URLShortener.repository.UrlRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -25,26 +26,29 @@ public class UrlShortenerService {
     private static final String CACHE_KEY_PREFIX = "url:";
 
     private final UrlRepository repository;
-    private final StringRedisTemplate primaryRedisTemplate;
-    private final StringRedisTemplate replicaRedisTemplate;
+    private final ObjectProvider<StringRedisTemplate> primaryRedisTemplateProvider;
+    private final ObjectProvider<StringRedisTemplate> replicaRedisTemplateProvider;
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final ObjectMapper objectMapper;
 
     @Value("${spring.kafka.topic.url-write}")
     private String urlWriteTopic;
 
+    @Value("${app.cache.enabled:true}")
+    private boolean cacheEnabled;
+
     @Value("${app.write.mode:kafka}")
     private String writeMode;
 
     public UrlShortenerService(
             UrlRepository repository,
-            @Qualifier("primaryRedisTemplate") StringRedisTemplate primaryRedisTemplate,
-            @Qualifier("replicaRedisTemplate") StringRedisTemplate replicaRedisTemplate,
+            @Qualifier("primaryRedisTemplate") ObjectProvider<StringRedisTemplate> primaryRedisTemplateProvider,
+            @Qualifier("replicaRedisTemplate") ObjectProvider<StringRedisTemplate> replicaRedisTemplateProvider,
             KafkaTemplate<String, String> kafkaTemplate,
             ObjectMapper objectMapper) {
         this.repository = repository;
-        this.primaryRedisTemplate = primaryRedisTemplate;
-        this.replicaRedisTemplate = replicaRedisTemplate;
+        this.primaryRedisTemplateProvider = primaryRedisTemplateProvider;
+        this.replicaRedisTemplateProvider = replicaRedisTemplateProvider;
         this.kafkaTemplate = kafkaTemplate;
         this.objectMapper = objectMapper;
     }
@@ -55,16 +59,25 @@ public class UrlShortenerService {
     public String find(String shortUrl) {
         String cacheKey = CACHE_KEY_PREFIX + shortUrl;
 
-        // 1. Try redis replica first
-        try {
-            String cachedLongUrl = replicaRedisTemplate.opsForValue().get(cacheKey);
-            if (cachedLongUrl != null) {
-                LOGGER.info("Cache HIT for key: {}", cacheKey);
-                return cachedLongUrl;
+        if (cacheEnabled) {
+            // 1. Try redis replica first
+            try {
+                StringRedisTemplate replicaRedisTemplate = replicaRedisTemplateProvider.getIfAvailable();
+                if (replicaRedisTemplate != null) {
+                    String cachedLongUrl = replicaRedisTemplate.opsForValue().get(cacheKey);
+                    if (cachedLongUrl != null) {
+                        LOGGER.info("Cache HIT for key: {}", cacheKey);
+                        return cachedLongUrl;
+                    }
+                    LOGGER.info("Cache MISS for key: {}", cacheKey);
+                } else {
+                    LOGGER.warn("Redis replica template is unavailable for key {}", cacheKey);
+                }
+            } catch (Exception ex) {
+                LOGGER.warn("Failed to read from Redis replica for key {}", cacheKey, ex);
             }
-            LOGGER.info("Cache MISS for key: {}", cacheKey); 
-        } catch (Exception ex) {
-            LOGGER.warn("Failed to read from Redis replica for key {}", cacheKey, ex);
+        } else {
+            LOGGER.info("Cache disabled; skipping Redis read for key: {}", cacheKey);
         }
 
         // 2. Cache miss - fall back to Cassandra
@@ -75,11 +88,18 @@ public class UrlShortenerService {
         String longUrl = result.get().getLongUrl();
 
         // 3. Populate primary cache (replicates to replicas)
-        try {
-            primaryRedisTemplate.opsForValue().set(cacheKey, longUrl, Duration.ofMinutes(1));
-            LOGGER.info("Cache populated for key: {}", cacheKey);
-        } catch (Exception ex) {
-            LOGGER.warn("Failed to update Redis primary cache for key {}", cacheKey, ex);
+        if (cacheEnabled) {
+            try {
+                StringRedisTemplate primaryRedisTemplate = primaryRedisTemplateProvider.getIfAvailable();
+                if (primaryRedisTemplate != null) {
+                    primaryRedisTemplate.opsForValue().set(cacheKey, longUrl, Duration.ofMinutes(1));
+                    LOGGER.info("Cache populated for key: {}", cacheKey);
+                } else {
+                    LOGGER.warn("Redis primary template is unavailable for key {}", cacheKey);
+                }
+            } catch (Exception ex) {
+                LOGGER.warn("Failed to update Redis primary cache for key {}", cacheKey, ex);
+            }
         }
 
         return longUrl;

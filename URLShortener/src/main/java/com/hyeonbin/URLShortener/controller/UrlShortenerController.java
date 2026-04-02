@@ -2,7 +2,9 @@ package com.hyeonbin.URLShortener.controller;
 
 import com.hyeonbin.URLShortener.service.UrlShortenerService;
 
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.*;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -15,16 +17,19 @@ import org.springframework.core.io.Resource;
 public class UrlShortenerController {
 
     private final UrlShortenerService service;
-    private final StringRedisTemplate primaryRedisTemplate;
-    private final StringRedisTemplate replicaRedisTemplate;
+    private final ObjectProvider<StringRedisTemplate> primaryRedisTemplateProvider;
+    private final ObjectProvider<StringRedisTemplate> replicaRedisTemplateProvider;
+
+    @Value("${app.cache.enabled:true}")
+    private boolean cacheEnabled;
     
     public UrlShortenerController(
             UrlShortenerService service,
-            @Qualifier("primaryRedisTemplate") StringRedisTemplate primaryRedisTemplate,
-            @Qualifier("replicaRedisTemplate") StringRedisTemplate replicaRedisTemplate) {
+            @Qualifier("primaryRedisTemplate") ObjectProvider<StringRedisTemplate> primaryRedisTemplateProvider,
+            @Qualifier("replicaRedisTemplate") ObjectProvider<StringRedisTemplate> replicaRedisTemplateProvider) {
         this.service = service;
-        this.primaryRedisTemplate = primaryRedisTemplate;
-        this.replicaRedisTemplate = replicaRedisTemplate;
+        this.primaryRedisTemplateProvider = primaryRedisTemplateProvider;
+        this.replicaRedisTemplateProvider = replicaRedisTemplateProvider;
     }
  
      // PUT /?short=abc&long=https://example.com
@@ -55,10 +60,20 @@ public class UrlShortenerController {
     // Temporary debug endpoint to check cache status for a given short URL
     @GetMapping("/debug/cache/{shortUrl}")
     public Map<String, String> debugCache(@PathVariable String shortUrl) {
+        if (!cacheEnabled) {
+            return Map.of(
+                "replica", "DISABLED",
+                "primary", "DISABLED"
+            );
+        }
+
         String cacheKey = "url:" + shortUrl;
 
-        String fromReplica = replicaRedisTemplate.opsForValue().get(cacheKey);
-        String fromPrimary = primaryRedisTemplate.opsForValue().get(cacheKey);
+        StringRedisTemplate replicaRedisTemplate = replicaRedisTemplateProvider.getIfAvailable();
+        StringRedisTemplate primaryRedisTemplate = primaryRedisTemplateProvider.getIfAvailable();
+
+        String fromReplica = replicaRedisTemplate != null ? replicaRedisTemplate.opsForValue().get(cacheKey) : null;
+        String fromPrimary = primaryRedisTemplate != null ? primaryRedisTemplate.opsForValue().get(cacheKey) : null;
 
         return Map.of(
             "replica", fromReplica != null ? fromReplica : "MISS",
