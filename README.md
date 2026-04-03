@@ -8,8 +8,8 @@ A horizontally scalable, fault-tolerant URL shortener built to demonstrate distr
 | :--- | :--- |
 | [docs/Project_Overview.md](docs/Project_Overview.md) | Architecture, design decisions, scalability strategy, fault tolerance |
 | [docs/Setup.md](docs/Setup.md) | Step-by-step deployment and local/cloud setup guide |
-| [docs/cli-cheatsheet.md](docs/cli-cheatsheet.md) | Useful kubectl, Docker, and Cassandra commands |
-| [docs/TESTING.md](docs/TESTING.md) | Load testing scenarios and fault injection steps |
+| [docs/cli-cheatsheet.md](docs/cli-cheatsheet.md) | Command reference (Kubernetes, Docker, Redis, Kafka, Cassandra) |
+| [docs/TESTING.md](docs/TESTING.md) | Load and fault-injection test guide |
 
 ---
 
@@ -45,22 +45,13 @@ See [docs/Setup.md](docs/Setup.md) for the full setup guide.
 From the repository root:
 
 ```bash
-./scripts/deploy-cassandra.sh
-./scripts/deploy-redis.sh
-./scripts/deploy-url-shortener.sh
-./scripts/deploy-url-write-consumer.sh
+./scripts/deploy-all.sh
 ```
 
 Teardown:
 
 ```bash
 ./scripts/teardown.sh
-```
-
-Seed sample data:
-
-```bash
-./scripts/seed.sh
 ```
 
 ### API Usage
