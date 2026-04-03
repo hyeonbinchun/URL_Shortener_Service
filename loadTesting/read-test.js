@@ -5,10 +5,14 @@ const BASE_URL = 'http://172.31.35.239:30000';
 
 export const options = {
     stages: [
-        { duration: '2m', target: 1000 },  // ramp up
-        { duration: '5m', target: 1000 },  // steady state
-        { duration: '1m', target: 0 },    // ramp down
+            { duration: '4m', target: 10000 },  // ramp up
+            { duration: '7m', target: 10000 },  // steady
+            { duration: '1m', target: 0 },  // ramp down
     ],
+        thresholds: {
+                http_req_duration: ['p(95)<1000', 'p(99)<2000'],
+                http_req_failed:   ['rate<0.01'],
+        },
 };
 
 export default function () {

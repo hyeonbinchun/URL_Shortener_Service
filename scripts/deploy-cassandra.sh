@@ -11,6 +11,6 @@ kubectl apply -f "$CASSANDRA/cassandra-service.yaml"
 kubectl apply -f "$CASSANDRA/cassandra-statefulset.yaml"
 
 echo "Waiting for Cassandra pods to be ready (this takes a few minutes)..."
-kubectl rollout status statefulset/cassandra -n cassandra --timeout=360s
+kubectl rollout status statefulset/cassandra -n cassandra --timeout=420s
 
 echo "Cassandra is ready."
