@@ -35,7 +35,7 @@ spec:
             - name: REDIS_SENTINEL_NODES
               value: "redis-sentinel-service.redis.svc.cluster.local:26379"
             - name: APP_WRITE_MODE
-              value: "direct"
+              value: "kafka"
           livenessProbe:
             httpGet:
               path: /actuator/health
