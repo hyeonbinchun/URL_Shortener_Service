@@ -2,18 +2,9 @@
 
 ## 1. Benchmark Results Summary
 
-### Throughput vs Load
+### Results
 
-<p align="center">
-  <img src="assets/dashboard.png" alt="Architecture Diagram" width="500" style="max-width: 100%; height: auto;" />
-</p>
-
-
-### 
-
-<p align="center">
-  <img src="assets/throughput-load2.png" alt="Architecture Diagram" width="500" style="max-width: 100%; height: auto;" />
-</p>
+![Graph](assets/dashboard.png)
 
 
 ### 1.6 Key Findings
