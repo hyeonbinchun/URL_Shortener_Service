@@ -95,4 +95,4 @@ curl 'http://<NODE_IP>:30000/debug/cache/abc'
 ## Validation
 
 - Load and fault injection scenarios: [docs/TESTING.md](docs/TESTING.md)
-- Includes node failure, Redis Sentinel failover, Kafka consumer outage, Cassandra node failure, Kafka DLT, and network partition tests.
+- Includes node failure, Redis Sentinel failover, Kafka consumer outage, Cassandra node failure, and Kafka DLT test.
