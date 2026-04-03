@@ -78,7 +78,7 @@ public class UrlShortenerService {
                 LOGGER.warn("Failed to read from Redis replica for key {}", cacheKey, ex);
             }
         } else {
-            LOGGER.info("Cache disabled; skipping Redis read for key: {}", cacheKey);
+            // LOGGER.info("Cache disabled; skipping Redis read for key: {}", cacheKey);
         }
 
         // 2. Cache miss - fall back to Cassandra
@@ -115,7 +115,7 @@ public class UrlShortenerService {
 
         if ("direct".equals(normalizedWriteMode)) {
             repository.save(new Url(shortUrl, longUrl, Instant.now()));
-            LOGGER.info("Direct write mode enabled. Saved URL mapping to Cassandra for key: {}", shortUrl);
+            // LOGGER.info("Direct write mode enabled. Saved URL mapping to Cassandra for key: {}", shortUrl);
             return;
         }
 
@@ -126,7 +126,7 @@ public class UrlShortenerService {
         );
         String json = toJsonString(message);
         kafkaTemplate.send(urlWriteTopic, shortUrl, json);
-        LOGGER.info("Published URL write event to Kafka topic '{}' for key: {}", urlWriteTopic, shortUrl);
+        // LOGGER.info("Published URL write event to Kafka topic '{}' for key: {}", urlWriteTopic, shortUrl);
     }
 
 

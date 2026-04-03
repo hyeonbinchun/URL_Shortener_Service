@@ -33,7 +33,7 @@ public class UrlWriteService {
         groupId = "${spring.kafka.consumer.group-id}"
     )
     public void consume(String message) {
-        LOGGER.info("Received message from Kafka: {}", message);
+        // LOGGER.info("Received message from Kafka: {}", message);
         UrlWriteMessage urlWriteMessage = UrlWriteMessage.fromJson(message);
         // test for failed message
         if (urlWriteMessage.getShortUrl().equals("fail-retry")) {
@@ -46,6 +46,6 @@ public class UrlWriteService {
             Instant.parse(urlWriteMessage.getCreatedAt())
         );
         urlRepository.save(url);
-        LOGGER.info("Saved to Cassandra: shortUrl={}", url.getShortUrl());
+        // LOGGER.info("Saved to Cassandra: shortUrl={}", url.getShortUrl());
     }
 }
