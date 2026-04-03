@@ -32,9 +32,9 @@ spec:
             - name: CASSANDRA_RACK
               value: "Rack1"
             - name: MAX_HEAP_SIZE
-              value: "256M"
+              value: "1G"
             - name: HEAP_NEWSIZE
-              value: "100M"
+              value: "256M"
           readinessProbe:     # Kubernetes won't send traffic until this passes
             tcpSocket:
               port: 9042

@@ -38,7 +38,8 @@ These targets were used for progressive load experiments:
 | 2,000 | 2 min | 5 min | 1 min |
 | 3,000 | 3 min | 7 min | 1 min |
 | 5,000 | 4 min | 7 min | 1 min |
-
+| 7,000 | 4 min | 7 min | 1 min |
+| 10,000 | 5 min | 7 min | 1 min |
 ---
 
 ## 2. Fault Injection
