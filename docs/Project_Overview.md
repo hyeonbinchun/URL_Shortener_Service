@@ -1,4 +1,4 @@
-# Distributed URL Shortener Service
+# Distributed URL Shortener
 
 ## 1. Project Objective
 
@@ -274,12 +274,16 @@ Handled by:
 
 
 ## 7. Testing/Benchmarking Strategy
+**Execution Environment:**
+- Multi-node Kubernetes cluster on 3 EC2 nodes
+- Load testing and fault injection executed in this multi-node setup
+- This benchmark focused on system throughput and internal service behavior in a controlled same-VPC. External network latency effects should be validated in separate cross-VPC or internet-path tests.
+
 ### 7.1 Load Testing
 **Scenarios**:
 1. Read-only workload
 2. Write-only workload
 3. Mixed workload (80% reads / 20% writes)
-4. Node failure
 
 **Each scenario includes the following phases**:
 1. Ramp-up
@@ -291,15 +295,35 @@ Handled by:
 - Each load test runs for several minutes to allow the system to reach a steady state and to collect sufficient performance metrics.
 
 ### 7.2 Fault Injection
-- Kill Cassandra pod
-- Kill Redis primary
+- Node-Level Failure Test
+- Redis Sentinel Failover Test 
+- Kafka Consumer Failure Test
+- Cassandra Node Failure Test
+- Kafka DLT Test
 
 ### 7.3 Measurement Comparison
 - Simplest baseline setup (1 api server 1 cassandra node)
 - Full architecture setup
 
-**Note**: Because the system runs on a single EC2 node, hardware resources become the global bottleneck. Therefore, horizontal scaling benefits are limited. However, architectural optimizations such as caching and asynchronous processing still provide significant performance improvements.
+**Note**: Testing on a 3-node EC2 cluster reduced single-host bottlenecks and provided a more realistic view of horizontal scaling behavior. Architectural optimizations such as caching and asynchronous processing continued to provide significant performance improvements under distributed load.
+
+### 7.4 Benchmark Outcomes (Executive Summary)
+- **Baseline ceiling identified**: Architecture 0 saturated near **2.09k req/s (write)** and **2.36k req/s (read)** at higher VU levels.
+- **API horizontal scaling impact**: Architecture 1 (3 API pods) increased peak write throughput to **4.05k req/s** at 5,000 VUs with **0.00%** errors.
+- **Cassandra scale impact**: Architecture 2 (3 Cassandra nodes) improved write-path durability capacity and reached **3.32k req/s** write, **3.52k req/s** read at 5,000 VUs.
+- **Cache acceleration impact**: Architecture 3 (Redis caching) delivered strongest read-path gain with **6.51k req/s** at 10,000 VUs.
+- **Async write decoupling impact**: Architecture 4 (Kafka async write) achieved highest write throughput at **6.13k req/s** at 10,000 VUs.
+- **Reliability trend**: Error rates stayed near zero in most operating ranges, with small increases only at extreme stress tiers.
+
+| Architecture | Primary outcome | Peak throughput | Improvement vs baseline |
+| :--- | :--- | :--- | :--- |
+| 0. Baseline | Single-node reference point | 2.09k req/s write, 2.36k req/s read | 0% |
+| 1. API horizontal scale | Higher write concurrency via 3 API pods | 4.05k req/s write | +93.8% write throughput |
+| 2. API + Cassandra scale | Better durability-oriented write capacity | 3.32k req/s write | +58.9% write throughput |
+| 3. Redis caching | Strongest read-path acceleration | 6.51k req/s read | +175.8% read throughput |
+| 4. Kafka async write | Highest write-path throughput | 6.13k req/s write | +193.8% write throughput |
+
+For full benchmark tables (P50/P95/P99, throughput, error rate by VU and scenario), see `docs/TESTING.md`.
 
 ## Future:
-- Multi-Node Environment
-- Cloud services: EKS, EBS, External LB, ETC 
+- Cloud services hardening: EKS production setup, EBS CSI optimization, external load balancer, and managed observability/alerting

@@ -2,6 +2,16 @@
 
 A horizontally scalable, fault-tolerant URL shortener built to demonstrate distributed system tradeoffs — caching, asynchronous writes, sentinel-based failover, and dead-letter handling — running on Kubernetes (k3s).
 
+## Performance Highlights
+
+- Validated on a 3-node EC2 Kubernetes cluster under load and fault injection.
+- Horizontal API scaling increased peak write throughput from 2.09k req/s to 4.05k req/s.
+- Redis caching raised peak read throughput to 6.51k req/s at 10,000 VUs.
+- Kafka asynchronous writes reached 6.13k req/s, showing the benefit of decoupling request handling from persistence.
+- Redis Sentinel failover preserved read availability during master replacement.
+- Kafka retry and DLT handling ensured failed writes were durably captured instead of dropped.
+- Benchmarking included baseline, horizontal scaling, cache, and async-write architectures for direct comparison.
+
 ## Documentation
 
 | Document | Description |

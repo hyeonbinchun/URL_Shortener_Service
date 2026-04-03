@@ -1,18 +1,6 @@
 # Setup Guide
 
-End-to-end instructions for deploying the Distributed URL Shortener Service on AWS using two EC2 instances and a k3s Kubernetes cluster.
-
----
-
-## Prerequisites
-
-| Tool | Purpose |
-| :--- | :--- |
-| Docker | Build application images |
-| kubectl | Interact with the Kubernetes cluster |
-| k3s | Lightweight Kubernetes (installed on EC2) |
-| k6 | Load testing (installed on load-tester EC2) |
-| curl | Smoke-test API endpoints |
+End-to-end instructions for deploying the Distributed URL Shortener Service on AWS using EC2 instances and a k3s Kubernetes cluster.
 
 ---
 
@@ -22,20 +10,35 @@ End-to-end instructions for deploying the Distributed URL Shortener Service on A
 
 | Instance | Type | Purpose |
 | :--- | :--- | :--- |
+| `service-node1` | `t4g.large` | Control Plane|
+| `service-node2` | `t4g.large` | Worker Node|
+| `service-node3` | `t4g.large` | Worker Node|
+| `kafka-server` | `t4g.large` | Runs kafka broker |
 | `load-tester` | `t3.medium` | Runs k6 load generator |
-| `service-node` | `t4g.xlarge` | Runs k3s cluster (all services) |
 
-Both instances must be in the same AWS VPC so the load tester can reach the service node's NodePort.
+Instances must be in the same AWS VPC so the load tester can reach the service node's NodePort.
 
-### Install k3s on `service-node`
+
+
+### 1. Setup `service-node1` (Control Plane)
+
+#### 1.1 Install k3s
 
 ```bash
+
+# Install k3s
 curl -sfL https://get.k3s.io | sh -
-# Export the kubeconfig
+
+# Make kubeconfig readable
+sudo chmod 644 /etc/rancher/k3s/k3s.yaml
+
+# Set KUBECONFIG for current session + permanently
 export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+echo "export KUBECONFIG=/etc/rancher/k3s/k3s.yaml" >> ~/.bashrc
+source ~/.bashrc
 ```
 
-### Install AWS EBS CSI Driver (for network-backed PVCs)
+#### 1.2 Install AWS EBS CSI Driver (for network-backed PVCs)
 
 Install the AWS EBS CSI driver in your cluster before deploying Cassandra/Redis:
 
@@ -57,33 +60,86 @@ kubectl get storageclass
 
 Expected class for this project: `ebs-csi-gp3` (provisioner: `ebs.csi.aws.com`).
 
-### Non-Production Migration: local-path -> EBS CSI (k3s on EC2)
+#### 1.3 Configure security groups
 
-If this is a portfolio/non-production environment, the fastest migration is a destructive reset of StatefulSet PVCs.
+Control plane and worker nodes use the same security group.
 
+Configure the following inbound rules:
+
+| Port | Protocol | Source | Purpose |
+| :--- | :--- | :--- | :--- |
+| 22 | TCP | 0.0.0.0/0 | SSH |
+| 6443 | TCP | 0.0.0.0/0 | k3s control plane communication |
+| 10250 | TCP | 0.0.0.0/0 | Kubelet |
+| 8472 | UDP | 0.0.0.0/0 | Flannel (VXLAN) |
+| 30000-30002 | TCP | 0.0.0.0/0 | Kubernetes NodePort (API) |
+| 9090 | TCP | 172.31.44.6/32 | Prometheus internal port for k6 |
+| All | All | same security group | Intra-cluster communication |
+
+### 2. Setup `service-node2` and `service-node3` (Worker Nodes)
+#### 2.1 Get node token on your first EC2 (Control Plane)
 ```bash
-chmod +x scripts/migrate-to-ebs-nonprod.sh
-./scripts/migrate-to-ebs-nonprod.sh
+# Get node token
+sudo cat /var/lib/rancher/k3s/server/node-token
+
+# use private IP if both EC2 are in same VPC
+SERVER_IP=172.31.x.x
+```
+#### 2.2 Join the Cluster
+```bash
+curl -sfL https://get.k3s.io | K3S_URL=https://<CONTROL_PLANE_PRIVATE_IP>:6443 \
+  K3S_TOKEN=<TOKEN_FROM_STEP_1> sh -
+  
 ```
 
-What this script does:
-1. Applies `storage/ebs-gp3-storageclass.yaml`.
-2. Sets `ebs-csi-gp3` as default StorageClass and removes default flag from `local-path`.
-3. Deletes Redis StatefulSets and PVCs, then recreates them.
-4. Deletes Cassandra StatefulSet and PVCs, then recreates it.
-5. Verifies new PVCs in `cassandra` and `redis` namespaces.
-
-Verify resulting PVC storage classes:
-
+#### 2.3 Verify node joined on control plane EC2
 ```bash
-kubectl get pvc -A -o custom-columns=NAMESPACE:.metadata.namespace,NAME:.metadata.name,SC:.spec.storageClassName,STATUS:.status.phase
+kubectl get nodes
+
+# you should see
+NAME        STATUS   ROLES                  
+master      Ready    control-plane
+worker-1    Ready    <none>
 ```
 
-### Install Kafka (external, on `service-node` or separate host)
 
+### 3. Setup `kafka-server`
+#### 3.1 Install and initialize Kafka
+```bash
+sudo apt update
+
+sudo apt install openjdk-17-jdk
+
+wget https://downloads.apache.org/kafka/4.0.1/kafka_2.13-4.0.1.tgz
+
+tar -xzf kafka_2.13-4.0.1.tgz 
+
+export KAFKA_HEAP_OPTS="-Xmx400m -Xms400m"
+
+sudo dd if=/dev/zero of=/swapfile bs=128M count=16
+
+sudo chmod 600 /swapfile
+
+sudo mkswap /swapfile
+
+sudo swapon /swapfile
+
+# Persist swap across reboot
+sudo vi /etc/fstab
+	Add: "/swapfile swap swap defaults 0 0"
+
+-----
+vi config/server.properties 
+# Replace localhost with the EC2 public IP in listeners/advertised listeners
+
+KAFKA_CLUSTER_ID="$(bin/kafka-storage.sh random-uuid)"
+
+bin/kafka-storage.sh format --standalone -t $KAFKA_CLUSTER_ID -c config/server.properties
+```
+#### 3.2 Update application bootstrap servers and rebuild images
 Kafka runs outside the k3s cluster. After starting a Kafka broker, update the bootstrap-servers address in both `URLShortener/src/main/resources/application.yaml` and `url-write-consumer/src/main/resources/application.yaml`, then rebuild the images.
 
-Create the required Kafka topic:
+#### 3.3 Create the required Kafka topic:
 ```bash
 kafka-topics.sh --create \
   --bootstrap-server <KAFKA_IP>:9092 \
@@ -92,11 +148,25 @@ kafka-topics.sh --create \
   --replication-factor 1
 ```
 
+
+### 4 Install k6 on `load-tester`
+
+```bash
+sudo mkdir -p /root/.gnupg
+sudo chmod 700 /root/.gnupg
+
+sudo gpg --no-default-keyring \
+  --keyring /usr/share/keyrings/k6-archive-keyring.gpg \
+  --keyserver hkp://keyserver.ubuntu.com:80 \
+  --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69 && \
+echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | \
+  sudo tee /etc/apt/sources.list.d/k6.list && \
+sudo apt-get update && \
+sudo apt-get install k6
+```
 ---
 
 ## Deployment Order
-
-Services must be deployed in order because Redis and Cassandra must be ready before the application pods start.
 
 ### 1. Deploy Cassandra
 
@@ -221,78 +291,4 @@ curl -i "http://$NODE_IP:30000/test"
 
 # Debug cache
 curl "http://$NODE_IP:30000/debug/cache/test"
-```
-
-### Kafka-Down API Scale Test Mode
-
-If Kafka broker is intentionally down and you only want to compare 1 vs 2 API replicas, set API write mode to direct Cassandra writes:
-
-```bash
-kubectl set env deployment/spring-deployment APP_WRITE_MODE=direct
-kubectl rollout restart deployment/spring-deployment
-kubectl rollout status deployment/spring-deployment
-```
-
-Restore normal async write path after Kafka is back:
-
-```bash
-kubectl set env deployment/spring-deployment APP_WRITE_MODE=kafka
-kubectl rollout restart deployment/spring-deployment
-kubectl rollout status deployment/spring-deployment
-```
-
----
-
-## Seed Data (for Load Testing)
-
-The `seed.sh` script inserts 10,000 URLs so the load tests can exercise cache hit/miss behaviour.
-
-Update `BASE_URL` inside the script to point to your service node, then run:
-```bash
-cd scripts
-./seed.sh
-```
-
----
-
-## Load Testing
-
-Run load tests from the `load-tester` EC2 instance. Copy the scripts in `loadTesting/` to that machine.
-
-Install k6:
-```bash
-# On the load-tester EC2
-sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg \
-  --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
-echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" \
-  | sudo tee /etc/apt/sources.list.d/k6.list
-sudo apt update && sudo apt install k6
-```
-
-Run a test scenario:
-```bash
-# Read-only workload
-k6 run loadTesting/read-test.js
-
-# Write-only workload
-k6 run loadTesting/write-test.js
-
-# Mixed (80% reads / 20% writes)
-k6 run loadTesting/mixed-test.js
-```
-
-See [Test.md](Test.md) for detailed scenario descriptions and fault injection steps.
-
----
-
-## Teardown
-
-```bash
-cd scripts
-./teardown.sh
-```
-
-This removes all Kubernetes resources. Cassandra PVCs are intentionally kept so data survives a redeploy. To also delete Cassandra data:
-```bash
-kubectl delete pvc -n cassandra --all
 ```

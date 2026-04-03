@@ -28,6 +28,9 @@ kubectl rollout status deployment spring-deployment
 
 # Filter pods by specific namespaces (default, redis, cassandra)
 kubectl get pods -o wide --all-namespaces | grep -E '^(default|redis|cassandra)\s'
+
+# Watch Resources Usage
+kubectl top pods --all-namespaces
 ```
 
 ---
