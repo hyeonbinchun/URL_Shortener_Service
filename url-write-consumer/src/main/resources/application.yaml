@@ -10,7 +10,7 @@ spring:
   kafka:
     topic:
       url-write: url.write
-    bootstrap-servers: 3.87.112.165:9092
+    bootstrap-servers: 54.86.33.196:9092
     consumer:
       group-id: url-write-group  
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
