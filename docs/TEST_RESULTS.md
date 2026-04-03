@@ -5,7 +5,7 @@
 ### Results
 
 <p align="center">
-  <img src="/assets/dashboard.png" alt="Graph" width="500" style="max-width: 100%; height: auto;" />
+  <img src="/assets/dashboard.png" alt="Graph" width="800" style="max-width: 100%; height: auto;" />
 </p>
 
 ### 1.6 Key Findings
