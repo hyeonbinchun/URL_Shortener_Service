@@ -149,7 +149,7 @@ kafka-topics.sh --create \
 ```
 
 
-### 4 Install k6 on `load-tester`
+### 4. Install k6 on `load-tester`
 
 ```bash
 sudo mkdir -p /root/.gnupg

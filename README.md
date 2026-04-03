@@ -17,8 +17,8 @@ A horizontally scalable, fault-tolerant URL shortener built to demonstrate distr
 | Document | Description |
 | :--- | :--- |
 | [docs/Project_Overview.md](docs/Project_Overview.md) | Architecture, design decisions, scalability strategy, fault tolerance |
-| [docs/Setup.md](docs/Setup.md) | Step-by-step deployment and local/cloud setup guide |
-| [docs/cli-cheatsheet.md](docs/cli-cheatsheet.md) | Command reference (Kubernetes, Docker, Redis, Kafka, Cassandra) |
+| [docs/SETUP.md](docs/SETUP.md) | Step-by-step deployment and local/cloud setup guide |
+| [docs/COMMANDS.md](docs/COMMANDS.md) | Command reference (Kubernetes, Docker, Redis, Kafka, Cassandra) |
 | [docs/TESTING.md](docs/TESTING.md) | Load and fault-injection test guide |
 
 ---

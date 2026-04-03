@@ -267,11 +267,6 @@ Handled by:
 - **Prometheus**: Scrapes k6 metrics and Spring Boot `/actuator/prometheus` endpoint
 - **Grafana**: Visualizes metrics in dashboards
 
-**Future Improvement**:
-1. Add system-level metrics: CPU, Memory per pod
-2. Extend monitoring to Redis, Kafka consumer lag, Cassandra
-3. Add alerting rules in Prometheus
-
 
 ## 7. Testing/Benchmarking Strategy
 **Execution Environment:**
@@ -315,15 +310,10 @@ Handled by:
 - **Async write decoupling impact**: Architecture 4 (Kafka async write) achieved highest write throughput at **6.13k req/s** at 10,000 VUs.
 - **Reliability trend**: Error rates stayed near zero in most operating ranges, with small increases only at extreme stress tiers.
 
-| Architecture | Primary outcome | Peak throughput | Improvement vs baseline |
-| :--- | :--- | :--- | :--- |
-| 0. Baseline | Single-node reference point | 2.09k req/s write, 2.36k req/s read | 0% |
-| 1. API horizontal scale | Higher write concurrency via 3 API pods | 4.05k req/s write | +93.8% write throughput |
-| 2. API + Cassandra scale | Better durability-oriented write capacity | 3.32k req/s write | +58.9% write throughput |
-| 3. Redis caching | Strongest read-path acceleration | 6.51k req/s read | +175.8% read throughput |
-| 4. Kafka async write | Highest write-path throughput | 6.13k req/s write | +193.8% write throughput |
 
-For full benchmark tables (P50/P95/P99, throughput, error rate by VU and scenario), see `docs/TESTING.md`.
+For full benchmark tables (P50/P95/P99, throughput, error rate by VU and scenario), see [docs/TEST_RESULTS.md](docs/TEST_RESULTS.md).
 
 ## Future:
-- Cloud services hardening: EKS production setup, EBS CSI optimization, external load balancer, and managed observability/alerting
+- Cloud services hardening: EKS production setup, EBS CSI optimization, external load balancer, and managed observability/alerting.
+- Add system-level metrics: CPU, memory, restarts, and network I/O per pod.
+- Extend observability to Redis hit ratio, Kafka consumer lag, and Cassandra read/write latency.
