@@ -8,8 +8,8 @@ A horizontally scalable, fault-tolerant URL shortener built to demonstrate distr
 | :--- | :--- |
 | [docs/Project_Overview.md](docs/Project_Overview.md) | Architecture, design decisions, scalability strategy, fault tolerance |
 | [docs/Setup.md](docs/Setup.md) | Step-by-step deployment and local/cloud setup guide |
-| [docs/Command.md](docs/Command.md) | Useful kubectl, Docker, and Cassandra commands |
-| [docs/Test.md](docs/Test.md) | Load testing scenarios and fault injection steps |
+| [docs/cli-cheatsheet.md](docs/cli-cheatsheet.md) | Useful kubectl, Docker, and Cassandra commands |
+| [docs/TESTING.md](docs/TESTING.md) | Load testing scenarios and fault injection steps |
 
 ---
 
@@ -17,7 +17,7 @@ A horizontally scalable, fault-tolerant URL shortener built to demonstrate distr
 ### Architecture Diagram
 
 <p align="center">
-  <img src="docs/architecture.png" alt="Architecture Diagram" width="500" style="max-width: 100%; height: auto;" />
+  <img src="assets/architecture.png" alt="Architecture Diagram" width="500" style="max-width: 100%; height: auto;" />
 </p>
 
 ### Tech Stack
@@ -39,6 +39,29 @@ A horizontally scalable, fault-tolerant URL shortener built to demonstrate distr
 ## Quick Start
 
 See [docs/Setup.md](docs/Setup.md) for the full setup guide.
+
+### Deploy with Scripts
+
+From the repository root:
+
+```bash
+./scripts/deploy-cassandra.sh
+./scripts/deploy-redis.sh
+./scripts/deploy-url-shortener.sh
+./scripts/deploy-url-write-consumer.sh
+```
+
+Teardown:
+
+```bash
+./scripts/teardown.sh
+```
+
+Seed sample data:
+
+```bash
+./scripts/seed.sh
+```
 
 ### API Usage
 
@@ -65,4 +88,11 @@ curl 'http://<NODE_IP>:30000/debug/cache/abc'
 - **Write-Around Async Write Path**: PUT requests publish a Kafka event and return immediately; the Writer Service persists to Cassandra asynchronously.
 - **Redis Sentinel Failover**: 3 Sentinel pods monitor the Redis master; on failure a replica is promoted automatically and the Spring client reconnects transparently.
 - **Dead Letter Topic (DLT)**: failed Kafka messages are retried 3 times (exponential backoff), then routed to `url.write.dlt` and persisted to `url_shortener.failed_messages` in Cassandra — no write is silently dropped.
-- **Single-Node Kubernetes (k3s)**: all components run on one EC2 instance to minimise cost while still exercising real distributed behaviour (load-balanced pods, Sentinel failover, async write decoupling).
+- **Multi-Node Kubernetes (k3s)**: designed for a 3-EC2-node cluster to validate node failover, network partition handling, and distributed recovery behavior under fault injection.
+
+---
+
+## Validation
+
+- Load and fault injection scenarios: [docs/TESTING.md](docs/TESTING.md)
+- Includes node failure, Redis Sentinel failover, Kafka consumer outage, Cassandra node failure, Kafka DLT, and network partition tests.
