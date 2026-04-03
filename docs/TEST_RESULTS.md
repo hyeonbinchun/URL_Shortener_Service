@@ -4,7 +4,7 @@
 
 ### Results
 
-![Graph](assets/dashboard.png)
+![Graph](/assets/dashboard.png)
 
 
 ### 1.6 Key Findings
