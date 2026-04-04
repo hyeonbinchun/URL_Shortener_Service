@@ -1,99 +1,101 @@
 # Distributed URL Shortener Service
 
-A horizontally scalable, fault-tolerant URL shortener built to demonstrate distributed system tradeoffs — caching, asynchronous writes, sentinel-based failover, and dead-letter handling — running on Kubernetes (k3s).
+A portfolio-grade URL shortener that demonstrates practical distributed system tradeoffs: cache-aside reads, asynchronous writes, Redis Sentinel failover, Cassandra persistence, and Kafka dead-letter handling on Kubernetes.
 
-## Performance Highlights
+## Why This Project
 
-- Validated on a 3-node EC2 Kubernetes cluster under load and fault injection.
-- Horizontal API scaling increased peak write throughput from 2.09k req/s to 4.05k req/s.
-- Redis caching raised peak read throughput to 6.51k req/s at 10,000 VUs.
-- Kafka asynchronous writes reached 6.13k req/s, showing the benefit of decoupling request handling from persistence.
-- Redis Sentinel failover preserved read availability during master replacement.
-- Kafka retry and DLT handling ensured failed writes were durably captured instead of dropped.
-- Benchmarking included baseline, horizontal scaling, cache, and async-write architectures for direct comparison.
+- Built to show how a simple web API evolves under scale and failure.
+- Validated on a multi-node Kubernetes cluster with load testing and fault injection.
+- Designed to highlight architecture decisions, not just application features.
 
-## Documentation
+## What It Does
 
-| Document | Description |
-| :--- | :--- |
-| [docs/Project_Overview.md](docs/Project_Overview.md) | Architecture, design decisions, scalability strategy, fault tolerance |
-| [docs/SETUP.md](docs/SETUP.md) | Step-by-step deployment and local/cloud setup guide |
-| [docs/COMMANDS.md](docs/COMMANDS.md) | Command reference (Kubernetes, Docker, Redis, Kafka, Cassandra) |
-| [docs/TESTING.md](docs/TESTING.md) | Load and fault-injection test guide |
+- Shortens URLs and redirects using a public HTTP API.
+- Serves reads through Redis for low-latency lookups.
+- Buffers writes through Kafka so the API can return quickly.
+- Persists data in Cassandra for durable storage.
+- Uses Redis Sentinel and Kafka retry/DLT handling for failure recovery.
 
----
+## Key Features
 
-## Architecture Overview
-### Architecture Diagram
+- Cache-aside read path with Redis replicas.
+- Asynchronous write path with Kafka and a separate writer service.
+- Redis Sentinel-based master failover.
+- Kafka retry handling with a dead-letter topic for failed writes.
+- Kubernetes manifests and scripts for repeatable deployment.
+- Load testing and fault-injection scenarios for benchmarking reliability and performance.
 
-<p align="center">
-  <img src="assets/architecture.png" alt="Architecture Diagram" width="500" style="max-width: 100%; height: auto;" />
-</p>
-
-### Tech Stack
+## Architecture at a Glance
 
 | Layer | Technology |
 | :--- | :--- |
 | API Service | Java 21 + Spring Boot 3 |
-| Writer Service | Java 21 + Spring Boot 3 (Kafka consumer) |
-| Cache | Redis 7 (1 master + 2 replicas) + Redis Sentinel (3 pods) |
-| Database | Apache Cassandra 4.1 (3-node StatefulSet, rf=2) |
-| Streaming | Apache Kafka (external) |
+| Writer Service | Java 21 + Spring Boot 3 |
+| Cache | Redis 7 + Redis Sentinel |
+| Database | Apache Cassandra 4.1 |
+| Streaming | Apache Kafka |
 | Orchestration | Kubernetes / k3s |
-| Observability | Spring Boot Actuator + Prometheus + Grafana |
+| Observability | Spring Boot Actuator, Prometheus, Grafana |
 | Load Testing | k6 |
-| Automation | Bash deploy scripts |
-
----
 
 ## Quick Start
 
-See [docs/Setup.md](docs/Setup.md) for the full setup guide.
-
-### Deploy with Scripts
-
-From the repository root:
+1. Review the setup guide in [docs/SETUP.md](docs/SETUP.md).
+2. Deploy the stack from the repository root:
 
 ```bash
 ./scripts/deploy-all.sh
 ```
 
-Teardown:
+3. Tear the environment down when finished:
 
 ```bash
 ./scripts/teardown.sh
 ```
 
-### API Usage
+## API Examples
 
-**Shorten a URL:**
+Shorten a URL:
+
 ```bash
 curl -i -X PUT 'http://<NODE_IP>:30000/?short=abc&long=https://example.com'
 ```
 
-**Redirect via short code:**
+Redirect using a short code:
+
 ```bash
 curl -i 'http://<NODE_IP>:30000/abc'
 ```
 
-**Debug cache status:**
+Inspect cache state:
+
 ```bash
 curl 'http://<NODE_IP>:30000/debug/cache/abc'
 ```
 
----
+## Documentation
 
-## Key Design Highlights
+| Document | Purpose |
+| :--- | :--- |
+| [docs/Project_Overview.md](docs/Project_Overview.md) | Architecture, data flow, scalability, and design decisions |
+| [docs/TEST_RESULTS.md](docs/TEST_RESULTS.md) | Benchmark methodology, results, and conclusions |
+| [docs/SETUP.md](docs/SETUP.md) | Installation and environment setup |
+| [docs/COMMANDS.md](docs/COMMANDS.md) | Operational command reference |
+| [docs/TESTING.md](docs/TESTING.md) | Test plan and fault-injection workflow |
 
-- **Cache-Aside Read Path**: reads check Redis replicas first; on cache miss the API falls back to Cassandra and lazily populates the Redis primary.
-- **Write-Around Async Write Path**: PUT requests publish a Kafka event and return immediately; the Writer Service persists to Cassandra asynchronously.
-- **Redis Sentinel Failover**: 3 Sentinel pods monitor the Redis master; on failure a replica is promoted automatically and the Spring client reconnects transparently.
-- **Dead Letter Topic (DLT)**: failed Kafka messages are retried 3 times (exponential backoff), then routed to `url.write.dlt` and persisted to `url_shortener.failed_messages` in Cassandra — no write is silently dropped.
-- **Multi-Node Kubernetes (k3s)**: designed for a 3-EC2-node cluster to validate node failover, network partition handling, and distributed recovery behavior under fault injection.
+## Repository Layout
 
----
+- `URLShortener/`: API service and deployment manifests.
+- `url-write-consumer/`: Kafka consumer that writes events to Cassandra.
+- `redis/`: Redis and Sentinel manifests.
+- `cassandra/`: Cassandra manifests.
+- `observability/`: Prometheus and Grafana configuration.
+- `loadTesting/`: k6 scenarios for reads, writes, and mixed traffic.
 
-## Validation
+## Highlights
 
-- Load and fault injection scenarios: [docs/TESTING.md](docs/TESTING.md)
-- Includes node failure, Redis Sentinel failover, Kafka consumer outage, Cassandra node failure, and Kafka DLT test.
+- Horizontal API scaling increased peak write throughput from 2.09k req/s to 4.05k req/s.
+- Redis caching raised peak read throughput to 6.51k req/s at 10,000 virtual users.
+- Kafka asynchronous writes reached 6.13k req/s under peak write load.
+- Redis Sentinel failover preserved availability during master replacement.
+- Dead-letter handling ensured failed writes were retained for inspection instead of being dropped.
