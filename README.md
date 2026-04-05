@@ -1,101 +1,82 @@
-# Distributed URL Shortener Service
+# Distributed URL Shortener
 
-A portfolio-grade URL shortener that demonstrates practical distributed system tradeoffs: cache-aside reads, asynchronous writes, Redis Sentinel failover, Cassandra persistence, and Kafka dead-letter handling on Kubernetes.
+A horizontally scalable, fault-tolerant URL shortener built to demonstrate real-world distributed systems tradeoffs — including caching strategies, asynchronous writes, sentinel-based failover, and dead-letter handling — deployed on Kubernetes (k3s).
 
-## Why This Project
+## Performance Highlights
 
-- Built to show how a simple web API evolves under scale and failure.
-- Validated on a multi-node Kubernetes cluster with load testing and fault injection.
-- Designed to highlight architecture decisions, not just application features.
+<p align="center">
+  <img src="/assets/dashboard.png" alt="Graph" width="800" style="max-width: 100%; height: auto;" />
+</p>
 
-## What It Does
+| Architecture | Peak Read | Peak Write | VUs |
+| :--- | :---: | :---: | :---: |
+| Baseline (1 API + 1 Cassandra) | 2.36k req/s | 2.09k req/s | 5,000 |
+| Horizontal API Scaling (3 API + 1 Cassandra) | 3.94k req/s | 4.05k req/s | 5,000 |
+| Cassandra Scaling (3 API + 3 Cassandra) | 3.52k req/s | 3.32k req/s | 5,000 |
+| Redis Caching | 6.51k req/s | — | 10,000 |
+| Kafka Async Writes | — | 6.13k req/s | 10,000 |
 
-- Shortens URLs and redirects using a public HTTP API.
-- Serves reads through Redis for low-latency lookups.
-- Buffers writes through Kafka so the API can return quickly.
-- Persists data in Cassandra for durable storage.
-- Uses Redis Sentinel and Kafka retry/DLT handling for failure recovery.
+Full benchmark tables: [docs/TEST_RESULTS.md](docs/TEST_RESULTS.md)
 
-## Key Features
+## Architecture Overview
 
-- Cache-aside read path with Redis replicas.
-- Asynchronous write path with Kafka and a separate writer service.
-- Redis Sentinel-based master failover.
-- Kafka retry handling with a dead-letter topic for failed writes.
-- Kubernetes manifests and scripts for repeatable deployment.
-- Load testing and fault-injection scenarios for benchmarking reliability and performance.
+<p align="center">
+  <img src="/assets/architecture.png" alt="Architecture Diagram" width="500" style="max-width: 100%; height: auto;" />
+</p>
 
-## Architecture at a Glance
+Full architecture and design decisions: [docs/SYSTEM_DESIGN.md](docs/SYSTEM_DESIGN.md)
+
+## Tech Stack
 
 | Layer | Technology |
 | :--- | :--- |
 | API Service | Java 21 + Spring Boot 3 |
-| Writer Service | Java 21 + Spring Boot 3 |
-| Cache | Redis 7 + Redis Sentinel |
-| Database | Apache Cassandra 4.1 |
-| Streaming | Apache Kafka |
+| Writer Service | Java 21 + Spring Boot 3 | 
+| Cache | Redis 7 |
+| Database Apache | Cassandra 4.1 | 
+| Message Queue | Apache Kafka |
 | Orchestration | Kubernetes / k3s |
-| Observability | Spring Boot Actuator, Prometheus, Grafana |
+|Observability | Prometheus + Grafana |
 | Load Testing | k6 |
+| Automation | Bash deploy scripts | 
+
+## Key Design Highlights
+
+- **Cache-Aside Read Path** — Redis replicas serve reads; misses fall back to Cassandra and lazily populate the cache.
+- **Write-Around Async Write Path** — Kafka decouples the API from Cassandra writes, enabling non-blocking responses and traffic spike buffering.
+- **Redis Sentinel Failover** — Three Sentinel pods monitor the Redis primary; on failure, a replica is promoted and the Spring client reconnects transparently.
+- **Dead Letter Topic (DLT)** — Failed Kafka messages are retried 3× then routed to url.write.dlt and persisted to url_shortener.failed_messages in Cassandra.
+- **Multi-Node Kubernetes (k3s)** — 3-EC2-node cluster validates horizontal scaling, node failover, and distributed recovery under fault injection.
+
 
 ## Quick Start
 
-1. Review the setup guide in [docs/SETUP.md](docs/SETUP.md).
-2. Deploy the stack from the repository root:
+See [docs/SETUP.md](docs/SETUP.md) for the full setup guide.
+
+**Deploy**
 
 ```bash
+# Deploy all services
 ./scripts/deploy-all.sh
-```
 
-3. Tear the environment down when finished:
-
-```bash
+# Teardown
 ./scripts/teardown.sh
 ```
 
-## API Examples
-
-Shorten a URL:
-
+**API Usage**
 ```bash
+# Shorten a URL
 curl -i -X PUT 'http://<NODE_IP>:30000/?short=abc&long=https://example.com'
-```
 
-Redirect using a short code:
-
-```bash
+# Resolve a short code
 curl -i 'http://<NODE_IP>:30000/abc'
 ```
 
-Inspect cache state:
-
-```bash
-curl 'http://<NODE_IP>:30000/debug/cache/abc'
-```
-
 ## Documentation
-
 | Document | Purpose |
 | :--- | :--- |
-| [docs/Project_Overview.md](docs/Project_Overview.md) | Architecture, data flow, scalability, and design decisions |
-| [docs/TEST_RESULTS.md](docs/TEST_RESULTS.md) | Benchmark methodology, results, and conclusions |
-| [docs/SETUP.md](docs/SETUP.md) | Installation and environment setup |
-| [docs/COMMANDS.md](docs/COMMANDS.md) | Operational command reference |
+| [docs/SYSTEM_DESIGN.md](docs/SYSTEM_DESIGN.md) | Architecture, design decisions, scalability, and fault tolerance |
+| [docs/SETUP.md](docs/SETUP.md) | Deployment and cloud setup guide |
 | [docs/TESTING.md](docs/TESTING.md) | Test plan and fault-injection workflow |
-
-## Repository Layout
-
-- `URLShortener/`: API service and deployment manifests.
-- `url-write-consumer/`: Kafka consumer that writes events to Cassandra.
-- `redis/`: Redis and Sentinel manifests.
-- `cassandra/`: Cassandra manifests.
-- `observability/`: Prometheus and Grafana configuration.
-- `loadTesting/`: k6 scenarios for reads, writes, and mixed traffic.
-
-## Highlights
-
-- Horizontal API scaling increased peak write throughput from 2.09k req/s to 4.05k req/s.
-- Redis caching raised peak read throughput to 6.51k req/s at 10,000 virtual users.
-- Kafka asynchronous writes reached 6.13k req/s under peak write load.
-- Redis Sentinel failover preserved availability during master replacement.
-- Dead-letter handling ensured failed writes were retained for inspection instead of being dropped.
+| [docs/TEST_RESULTS.md](docs/TEST_RESULTS.md) | Benchmarking methodology, results, and analysis |
+| [docs/COMMANDS.md](docs/COMMANDS.md) | Operational command reference |

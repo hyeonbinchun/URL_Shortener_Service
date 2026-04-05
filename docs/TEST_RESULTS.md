@@ -22,7 +22,7 @@
   <img src="/assets/dashboard.png" alt="Graph" width="800" style="max-width: 100%; height: auto;" />
 </p>
 
-| Architecture | Read| Write Throughput | Notable Outcome |
+| Architecture | Peak Read | Peak Write | Notable Outcome |
 | :--- | :---: | :---: | :--- |
 | Baseline | 2.36k req/s | 2.09k req/s,  | Saturates quickly; P95 >1.5s at 5k VUs |
 | Horizontal API scale | 3.94k req/s | 4.05k req/s | Near 2× gain |
