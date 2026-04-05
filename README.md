@@ -20,7 +20,7 @@ Full benchmark tables: [docs/TEST_RESULTS.md](docs/TEST_RESULTS.md)
 
 ## Architecture Overview
 
-<p align="center">
+<p>
   <img src="/assets/architecture.png" alt="Architecture Diagram" width="500" style="max-width: 100%; height: auto;" />
 </p>
 
