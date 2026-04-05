@@ -18,11 +18,11 @@ Note: The application is designed with a small scope to ensure that architectura
 
 | Component | Technology | Role |
 | :--- | :--- | :--- |
-| API Service | Java 21 + Spring Boot 3 | Handles HTTP requests |
+| API Service | Java + Spring Boot | Handles HTTP requests |
 | Message Queue | Apache Kafka | Buffers & decouples writes |
-| Writer Service | Java 21 + Spring Boot 3| Consumes Kafka events |
-| Database | Apache Cassandra 4.1 (3 node, RF=2) | Scalable persistent storage |
-| Cache | Redis 7 (Primary + 2 Replicas) | Low-latency reads |
+| Writer Service | Java + Spring Boot | Consumes Kafka events |
+| Database | Apache Cassandra (3 node, RF=2) | Scalable persistent storage |
+| Cache | Redis (Primary + 2 Replicas) | Low-latency reads |
 | Sentinel | Redis Sentinel | Monitors Redis, auto-failover |
 | Orchestration | Kubernetes / k3s | Scheduling, scaling, self-healing |
 | Observability | Prometheus + Grafana | Metrics & dashboards
@@ -47,11 +47,11 @@ Note: The application is designed with a small scope to ensure that architectura
 #### 2.4 Write Path - Write-Around (Asynchronous)
 
 1. Client submits a new short URL mapping.
-2. API publised to Kafka → returns `202 Accepted` immediately (non-blocking).
+2. API publishes to Kafka → return immediately (non-blocking).
 3. Writer Service consumes from Kafka → writes to Cassandra.
-4. On failure: retried up to 3× with exponential backoff (1s, 2s, 4s).
+4. On failure: retried up to 3× with exponential backoff.
 5. All retries exhausted → message routed to Dead Letter Topic (`url.write.dlt`).
-6. `UrlWriteDltService` consumes from DLT → persists failed event to `url_shortener.failed_messages` for inspection or replay. No write is silently dropped.
+6. `UrlWriteDltService` consumes from DLT → attempts to persist failed event to `url_shortener.failed_messages` for inspection or replay.
 
 ## 3. Design Decisions
 
@@ -74,7 +74,7 @@ Separating the consumer from the API keeps responsibilities clear and makes writ
 
 ### 3.5 Dead Letter Handling
 
-Failed Kafka messages are retried with exponential backoff and then sent to a dead-letter topic. A dedicated DLT consumer stores the failed event details in Cassandra. This guarantees every failed write is captured for inspection or replay — no message is silently lost.
+Failed Kafka messages are retried with exponential backoff and then sent to a dead-letter topic. A dedicated DLT consumer stores failed event details in Cassandra for inspection or replay. If Cassandra is temporarily unavailable during DLT persistence, failures are logged for operational follow-up.
 
 ### 3.6 Kubernetes for Deployment
 
@@ -86,9 +86,9 @@ Redis and Cassandra stateful pods use PVCs backed by the `ebs-csi-gp3` StorageCl
 
 ### 3.8 Observability
 
-The system exposes metrics through Spring Boot Actuator and collects them with Prometheus. Grafana is used for dashboards during load testing and fault injection. The observability layer focuses on request throughput, latency percentiles, and error rates. Current gaps: per-pod CPU/memory, Kafka consumer lag, and Redis hit ratio are not yet collected.
+The API service exposes metrics through Spring Boot Actuator and Prometheus currently scrapes the API metrics endpoint. Grafana is used for dashboards during load testing and fault injection. Current gaps: per-pod CPU/memory, writer-service metrics, Kafka consumer lag, and Redis hit ratio are not yet collected.
 
-## Scalability Strategy
+## 4. Scalability Strategy
 
 ### 4.1 Horizontal Scaling by Layer
 
@@ -113,6 +113,6 @@ Cassandra handles data scalability through consistent-hash-based partition distr
 | Cassandra node failure | Replication ensures data availability; StatefulSet reschedules the pod|
 | Redis primary failure | Sentinel quorum promotes a replica; Spring client reconnects transparently |
 |  Redis replica failure | Pod replaced by Kubernetes; new replica syncs from primary |
-| Writer Service failure | Failed events remain in url.write.url; Kubernetes restarts the consumer pod |
+| Writer Service failure | Unconsumed events remain in `url.write`; Kubernetes restarts the consumer pod |
 | Kubernetes node failure | Pods on the failed node are rescheduled to healthy nodes; Services continue routing to ready endpoints |
-| Stateful pod restart on another node | Kubernetes reattaches the existing EBS volume to the new node, preserving Redis/Cassandra data |
+| Stateful pod restart on another node | Kubernetes reattaches the existing EBS volume to a replacement node in the same AZ, preserving Redis/Cassandra data |
