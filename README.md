@@ -20,11 +20,11 @@ Full benchmark tables: [docs/TEST_RESULTS.md](docs/TEST_RESULTS.md)
 
 ## Architecture Overview
 
+Full architecture and design decisions: [docs/SYSTEM_DESIGN.md](docs/SYSTEM_DESIGN.md)
+
 <p align="center">
   <img src="/assets/architecture.png" alt="Architecture Diagram" width="500" style="max-width: 100%; height: auto;" />
 </p>
-
-Full architecture and design decisions: [docs/SYSTEM_DESIGN.md](docs/SYSTEM_DESIGN.md)
 
 ## Tech Stack
 
