@@ -4,8 +4,8 @@ A horizontally scalable, fault-tolerant URL shortener built to demonstrate real-
 
 ## Performance Highlights
 
-<p align="center">
-  <img src="/assets/dashboard.png" alt="Graph" width="800" style="max-width: 100%; height: auto;" />
+<p>
+  <img src="/assets/dashboard.png" alt="Graph" width="700" style="max-width: 100%; height: auto;" />
 </p>
 
 | Architecture | Peak Read | Peak Write | VUs |
